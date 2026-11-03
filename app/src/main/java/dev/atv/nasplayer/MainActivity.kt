@@ -22,6 +22,7 @@ import dev.atv.nasplayer.ui.SettingsScreen
 sealed interface Screen {
     data object Home : Screen
     data object Settings : Screen
+    data object PlaybackLog : Screen
     data class Edit(val existingId: String?, val prefill: ServerConfig?) : Screen
     data class Browse(val serverId: String, val startPath: String?) : Screen
 }
@@ -54,7 +55,8 @@ private fun App(onExit: () -> Unit) {
             onAddServer = { prefill -> push(Screen.Edit(null, prefill)) },
             onSettings = { push(Screen.Settings) },
         )
-        Screen.Settings -> SettingsScreen()
+        Screen.Settings -> SettingsScreen(onOpenLog = { push(Screen.PlaybackLog) })
+        Screen.PlaybackLog -> dev.atv.nasplayer.ui.PlaybackLogScreen()
         is Screen.Edit -> ServerEditScreen(
             existingId = screen.existingId,
             prefill = screen.prefill,

@@ -46,8 +46,13 @@ object EngineChooser {
         else -> false
     }
 
-    /** ExoPlayer "plays" files whose video or audio it can't decode by silently skipping that track. */
-    fun hasUnplayableTracks(tracks: Tracks): Boolean {
+    /**
+     * ExoPlayer "plays" files whose video or audio it can't decode by silently skipping that track,
+     * and its extractors drop streams they don't recognise at all (e.g. ProRes in MOV) — so a video
+     * file that shows up with no video track is also a reason to hand off.
+     */
+    fun hasUnplayableTracks(tracks: Tracks, expectVideo: Boolean): Boolean {
+        if (expectVideo && !tracks.containsType(C.TRACK_TYPE_VIDEO)) return true
         val badVideo = tracks.containsType(C.TRACK_TYPE_VIDEO) && !tracks.isTypeSupported(C.TRACK_TYPE_VIDEO)
         val badAudio = tracks.containsType(C.TRACK_TYPE_AUDIO) && !tracks.isTypeSupported(C.TRACK_TYPE_AUDIO)
         return badVideo || badAudio

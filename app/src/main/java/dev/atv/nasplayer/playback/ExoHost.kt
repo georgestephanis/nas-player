@@ -83,8 +83,34 @@ fun ExoHost(
 
         var tracksChecked = false
         var handedOff = false
+        var everReady = false
+        val recorder = PlaybackRecorder(server.name, joinPath(request.folder, name), Engine.EXO)
+        val analytics = object : androidx.media3.exoplayer.analytics.AnalyticsListener {
+            override fun onVideoInputFormatChanged(
+                eventTime: androidx.media3.exoplayer.analytics.AnalyticsListener.EventTime,
+                format: androidx.media3.common.Format,
+                decoderReuseEvaluation: androidx.media3.exoplayer.DecoderReuseEvaluation?,
+            ) = recorder.track("video", TrackInfo("video", format.sampleMimeType ?: "?", describeFormat(format)))
+
+            override fun onAudioInputFormatChanged(
+                eventTime: androidx.media3.exoplayer.analytics.AnalyticsListener.EventTime,
+                format: androidx.media3.common.Format,
+                decoderReuseEvaluation: androidx.media3.exoplayer.DecoderReuseEvaluation?,
+            ) = recorder.track("audio", TrackInfo("audio", format.sampleMimeType ?: "?", describeFormat(format)))
+
+            override fun onVideoDecoderInitialized(
+                eventTime: androidx.media3.exoplayer.analytics.AnalyticsListener.EventTime,
+                decoderName: String, initializedTimestampMs: Long, initializationDurationMs: Long,
+            ) = recorder.decoder("video", decoderName)
+
+            override fun onAudioDecoderInitialized(
+                eventTime: androidx.media3.exoplayer.analytics.AnalyticsListener.EventTime,
+                decoderName: String, initializedTimestampMs: Long, initializationDurationMs: Long,
+            ) = recorder.decoder("audio", decoderName)
+        }
         val listener = object : Player.Listener {
             override fun onPlaybackStateChanged(state: Int) {
+                if (state == Player.STATE_READY) everReady = true
                 if (state == Player.STATE_ENDED && !handedOff) {
                     handedOff = true
                     if (player.duration > 0) onProgress(player.duration, player.duration)
@@ -96,9 +122,12 @@ fun ExoHost(
                 if (handedOff) return
                 handedOff = true
                 val pos = player.currentPosition.coerceAtLeast(session.startMs)
+                val reason = error.errorCodeName.removePrefix("ERROR_CODE_").lowercase().replace('_', ' ')
                 if (EngineChooser.shouldFallBack(error)) {
-                    onFallback(pos, error.errorCodeName.removePrefix("ERROR_CODE_").lowercase().replace('_', ' '))
+                    recorder.finish(Outcome.FELL_BACK, reason + (error.cause?.message?.let { ": $it" } ?: ""))
+                    onFallback(pos, reason)
                 } else {
+                    recorder.finish(Outcome.FAILED, describe(error))
                     onError(describe(error))
                 }
             }
@@ -106,19 +135,31 @@ fun ExoHost(
             override fun onTracksChanged(tracks: Tracks) {
                 if (tracksChecked || tracks.isEmpty || handedOff) return
                 tracksChecked = true
-                if (EngineChooser.hasUnplayableTracks(tracks)) {
+                recordTracks(recorder, tracks)
+                val expectVideo = dev.atv.nasplayer.source.MediaTypes.kindOf(name) == dev.atv.nasplayer.source.MediaKind.VIDEO
+                if (EngineChooser.hasUnplayableTracks(tracks, expectVideo)) {
                     handedOff = true
+                    val why = if (expectVideo && !tracks.containsType(androidx.media3.common.C.TRACK_TYPE_VIDEO)) {
+                        "no video track recognised by ExoPlayer"
+                    } else "unsupported codec"
+                    recorder.finish(Outcome.FELL_BACK, why)
                     onFallback(player.currentPosition.coerceAtLeast(session.startMs), "unsupported codec")
                 }
             }
         }
         player.addListener(listener)
+        player.addAnalyticsListener(analytics)
         if (dev.atv.nasplayer.BuildConfig.DEBUG) player.addAnalyticsListener(androidx.media3.exoplayer.util.EventLogger("NasExo"))
         player.setMediaItem(item, session.startMs)
         player.prepare()
         player.playWhenReady = true
 
         onDispose {
+            when {
+                handedOff && player.playbackState != Player.STATE_ENDED -> Unit // already recorded
+                everReady -> recorder.finish(Outcome.PLAYED)
+                else -> recorder.finish(Outcome.FAILED, "stopped while still loading")
+            }
             player.removeListener(listener)
             if (!handedOff && player.duration > 0) onProgress(player.currentPosition, player.duration)
             viewRef[0]?.player = null
@@ -158,6 +199,35 @@ fun ExoHost(
             }
         },
     )
+}
+
+internal fun describeFormat(f: androidx.media3.common.Format): String = buildList {
+    if (f.width > 0) add("${f.width}x${f.height}")
+    if (f.channelCount > 0) add("${f.channelCount}ch")
+    if (f.sampleRate > 0) add("${f.sampleRate}Hz")
+    f.codecs?.let { add(it) }
+    f.language?.takeIf { it != "und" }?.let { add(it) }
+}.joinToString(" ")
+
+private fun recordTracks(recorder: PlaybackRecorder, tracks: Tracks) {
+    tracks.groups.forEachIndexed { g, group ->
+        val type = when (group.type) {
+            androidx.media3.common.C.TRACK_TYPE_VIDEO -> "video"
+            androidx.media3.common.C.TRACK_TYPE_AUDIO -> "audio"
+            androidx.media3.common.C.TRACK_TYPE_TEXT -> "text"
+            else -> return@forEachIndexed
+        }
+        for (i in 0 until group.length) {
+            val f = group.getTrackFormat(i)
+            f.containerMimeType?.let { recorder.container = it.substringAfter('/') }
+            val supported = group.isTrackSupported(i)
+            // Supported tracks are logged once their decoder initialises; only unsupported ones here
+            // (plus text, which has no decoder callback).
+            if (!supported || type == "text") {
+                recorder.track("$type-$g-$i", TrackInfo(type, f.sampleMimeType ?: "?", describeFormat(f), supported = supported))
+            }
+        }
+    }
 }
 
 private fun describe(e: PlaybackException): String = when (e.errorCode) {

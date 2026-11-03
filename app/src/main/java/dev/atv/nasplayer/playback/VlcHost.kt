@@ -120,13 +120,37 @@ fun VlcHost(
         trackMenu = audio + spu
     }
 
+    val recorder = remember(session) { PlaybackRecorder(server.name, joinPath(request.folder, name), Engine.VLC) }
+
+    fun recordVlcTracks() {
+        val media = mp.media ?: return
+        try {
+            for (i in 0 until media.trackCount) {
+                val t = media.getTrack(i) ?: continue
+                val (type, detail) = when (t) {
+                    is IMedia.VideoTrack -> "video" to "${t.width}x${t.height}"
+                    is IMedia.AudioTrack -> "audio" to "${t.channels}ch ${t.rate}Hz"
+                    else -> "text" to ""
+                }
+                val lang = t.language?.let { " $it" } ?: ""
+                recorder.track("vlc-$i", TrackInfo(type, t.codec ?: t.originalCodec ?: "?", detail + lang, decoder = "libvlc"))
+            }
+        } finally {
+            media.release()
+        }
+    }
+
     DisposableEffect(mp) {
         var finished = false
+        var played = false
         mp.setEventListener { e ->
             when (e.type) {
                 MediaPlayer.Event.TimeChanged -> time = e.timeChanged
                 MediaPlayer.Event.LengthChanged -> length = e.lengthChanged
-                MediaPlayer.Event.Playing -> { playing = true; buffering = false }
+                MediaPlayer.Event.Playing -> {
+                    playing = true; buffering = false
+                    if (!played) { played = true; recordVlcTracks() }
+                }
                 MediaPlayer.Event.Paused -> playing = false
                 MediaPlayer.Event.Buffering -> buffering = e.buffering < 100f
                 MediaPlayer.Event.EndReached -> if (!finished) {
@@ -136,11 +160,13 @@ fun VlcHost(
                 }
                 MediaPlayer.Event.EncounteredError -> if (!finished) {
                     finished = true
+                    recorder.finish(Outcome.FAILED, "VLC could not open or decode the file")
                     onError("VLC couldn't open or decode this file.")
                 }
             }
         }
         onDispose {
+            if (played) recorder.finish(Outcome.PLAYED) else recorder.finish(Outcome.FAILED, "stopped while still loading")
             mp.setEventListener(null)
             if (!finished && length > 0) onProgress(mp.time, length)
             mp.stop()
@@ -216,7 +242,9 @@ fun VlcHost(
             modifier = Modifier.fillMaxSize(),
             factory = { ctx ->
                 VLCVideoLayout(ctx).also {
-                    mp.attachViews(it, null, /* subtitles = */ true, /* textureView = */ false)
+                    // TextureView: composes inside the normal view hierarchy, so the Compose overlay draws on
+                    // top (a SurfaceView here rendered black and hid the overlay on the Streamer).
+                    mp.attachViews(it, null, /* subtitles = */ true, /* textureView = */ true)
                     viewReady = true
                 }
             },

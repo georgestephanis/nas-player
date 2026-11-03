@@ -3,26 +3,52 @@ package dev.atv.nasplayer.data
 import android.security.keystore.KeyGenParameterSpec
 import android.security.keystore.KeyProperties
 import android.util.Base64
+import android.util.Log
 import java.security.KeyStore
+import java.util.concurrent.Executors
+import java.util.concurrent.TimeUnit
 import javax.crypto.Cipher
 import javax.crypto.KeyGenerator
 import javax.crypto.SecretKey
 import javax.crypto.spec.GCMParameterSpec
 
-/** Encrypts saved passwords with a non-exportable AndroidKeyStore key. */
+/**
+ * Encrypts saved passwords with a non-exportable AndroidKeyStore key.
+ *
+ * The system keystore service can hang indefinitely on some TV firmware (observed on a Google TV
+ * Streamer: keystore2 calls pending for days until reboot). Every keystore call therefore runs on
+ * a dedicated thread with a timeout. If the keystore doesn't answer, values are stored with a
+ * "plain:" prefix in app-private storage (sandboxed, backups disabled) and transparently
+ * re-encrypted on the next save once the keystore responds again.
+ */
 object SecretBox {
+    private const val TAG = "SecretBox"
     private const val ALIAS = "nasplayer_credentials"
     private const val TRANSFORM = "AES/GCM/NoPadding"
     private const val IV_LEN = 12
+    private const val PLAIN = "plain:"
+    private const val TIMEOUT_MS = 2_000L
 
-    // Hardware-backed keystore calls can take seconds on TV SoCs: cache the handle and only ever
-    // call into SecretBox from a background thread.
+    private val keystoreThread = Executors.newSingleThreadExecutor { r ->
+        Thread(r, "keystore").apply { isDaemon = true }
+    }
+
     @Volatile private var cached: SecretKey? = null
+    @Volatile private var unavailableUntil = 0L
 
-    @Synchronized
-    private fun key(): SecretKey {
+    /** Null when the keystore is unavailable right now. */
+    private fun key(): SecretKey? {
         cached?.let { return it }
-        return loadOrCreate().also { cached = it }
+        if (System.currentTimeMillis() < unavailableUntil) return null
+        return try {
+            keystoreThread.submit<SecretKey> { loadOrCreate() }.get(TIMEOUT_MS, TimeUnit.MILLISECONDS)
+                .also { cached = it }
+        } catch (e: Exception) {
+            // Don't stack up more blocked calls behind a hung keystore for a while.
+            unavailableUntil = System.currentTimeMillis() + 60_000
+            Log.w(TAG, "Android keystore unavailable (${e.javaClass.simpleName}); storing credentials unencrypted in app storage")
+            null
+        }
     }
 
     private fun loadOrCreate(): SecretKey {
@@ -38,19 +64,26 @@ object SecretBox {
         return gen.generateKey()
     }
 
+    /** Call off the main thread: may block for up to [TIMEOUT_MS]. */
     fun encrypt(plain: String): String {
         if (plain.isEmpty()) return ""
-        val cipher = Cipher.getInstance(TRANSFORM).apply { init(Cipher.ENCRYPT_MODE, key()) }
+        val key = key() ?: return PLAIN + Base64.encodeToString(plain.toByteArray(Charsets.UTF_8), Base64.NO_WRAP)
+        val cipher = Cipher.getInstance(TRANSFORM).apply { init(Cipher.ENCRYPT_MODE, key) }
         val out = cipher.iv + cipher.doFinal(plain.toByteArray(Charsets.UTF_8))
         return Base64.encodeToString(out, Base64.NO_WRAP)
     }
 
+    /** Call off the main thread: may block for up to [TIMEOUT_MS]. */
     fun decrypt(encoded: String): String {
         if (encoded.isEmpty()) return ""
+        if (encoded.startsWith(PLAIN)) {
+            return String(Base64.decode(encoded.removePrefix(PLAIN), Base64.NO_WRAP), Charsets.UTF_8)
+        }
         return try {
+            val key = key() ?: return ""
             val bytes = Base64.decode(encoded, Base64.NO_WRAP)
             val cipher = Cipher.getInstance(TRANSFORM).apply {
-                init(Cipher.DECRYPT_MODE, key(), GCMParameterSpec(128, bytes, 0, IV_LEN))
+                init(Cipher.DECRYPT_MODE, key, GCMParameterSpec(128, bytes, 0, IV_LEN))
             }
             String(cipher.doFinal(bytes, IV_LEN, bytes.size - IV_LEN), Charsets.UTF_8)
         } catch (e: Exception) {

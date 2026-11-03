@@ -25,7 +25,7 @@ import dev.atv.nasplayer.data.Settings
 import dev.atv.nasplayer.playback.EnginePreference
 
 @Composable
-fun SettingsScreen() {
+fun SettingsScreen(onOpenLog: () -> Unit) {
     var engine by remember { mutableStateOf(Settings.enginePreference) }
     var autoNext by remember { mutableStateOf(Settings.autoPlayNext) }
     var showAll by remember { mutableStateOf(Settings.showAllFiles) }
@@ -72,6 +72,16 @@ fun SettingsScreen() {
                 headlineContent = { Text("Show non-media files") },
                 supportingContent = { Text("Unrecognised files open with the VLC engine.") },
                 trailingContent = { Switch(checked = showAll, onCheckedChange = null) },
+                modifier = w,
+            )
+        }
+        item { Text("Diagnostics", style = MaterialTheme.typography.titleMedium) }
+        item {
+            ListItem(
+                selected = false,
+                onClick = onOpenLog,
+                headlineContent = { Text("Playback log") },
+                supportingContent = { Text("Files played, codecs found, which decoder handled them, and what failed.") },
                 modifier = w,
             )
         }

@@ -11,5 +11,6 @@ class NasPlayerApp : Application() {
         ServerRepository.init(this)
         ResumeStore.init(this)
         Settings.init(this)
+        dev.atv.nasplayer.playback.PlaybackLog.init(this)
     }
 }
