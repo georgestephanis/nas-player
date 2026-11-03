@@ -8,6 +8,7 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.widthIn
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material3.OutlinedTextField
@@ -21,6 +22,9 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
+import androidx.compose.ui.input.key.key
+import androidx.compose.ui.input.key.onPreviewKeyEvent
+import androidx.compose.ui.input.key.type
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.input.PasswordVisualTransformation
@@ -76,13 +80,16 @@ fun ServerEditScreen(existingId: String?, prefill: ServerConfig?, onDone: () -> 
         )
     }
 
-    LazyColumn(
-        modifier = Modifier.fillMaxSize(),
-        contentPadding = PaddingValues(horizontal = 48.dp, vertical = 32.dp),
+    // Plain scrolling Column (not LazyColumn): inserting the status line must not shift focus.
+    Column(
+        modifier = Modifier
+            .fillMaxSize()
+            .verticalScroll(androidx.compose.foundation.rememberScrollState())
+            .padding(horizontal = 48.dp, vertical = 32.dp),
         verticalArrangement = Arrangement.spacedBy(14.dp),
     ) {
-        item { Text(if (existing != null) "Edit source" else "Add source", style = MaterialTheme.typography.headlineMedium) }
-        item {
+        Text(if (existing != null) "Edit source" else "Add source", style = MaterialTheme.typography.headlineMedium)
+        run {
             Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
                 ServerType.entries.forEachIndexed { i, t ->
                     FilterChip(
@@ -93,8 +100,8 @@ fun ServerEditScreen(existingId: String?, prefill: ServerConfig?, onDone: () -> 
                 }
             }
         }
-        item { Field("Display name", name, { name = it }, placeholder = "Living room NAS") }
-        item {
+        Field("Display name", name, { name = it }, placeholder = "Living room NAS")
+        run {
             Field(
                 if (type == ServerType.SMB) "Host or IP address" else "WebDAV URL",
                 host, { host = it },
@@ -103,17 +110,17 @@ fun ServerEditScreen(existingId: String?, prefill: ServerConfig?, onDone: () -> 
             )
         }
         if (type == ServerType.SMB) {
-            item {
+            run {
                 Field("Share / folder (optional)", path, { path = it }, placeholder = "Media/Movies — leave blank to list all shares")
             }
         }
-        item { Field("Port (optional)", port, { port = it.filter(Char::isDigit) }, placeholder = if (type == ServerType.SMB) "445" else "", keyboardType = KeyboardType.Number) }
-        item { Field("Username (blank for guest)", username, { username = it }) }
-        item { Field("Password", password, { password = it }, password = true) }
+        Field("Port (optional)", port, { port = it.filter(Char::isDigit) }, placeholder = if (type == ServerType.SMB) "445" else "", keyboardType = KeyboardType.Number)
+        Field("Username (blank for guest)", username, { username = it })
+        Field("Password", password, { password = it }, password = true)
         if (type == ServerType.SMB) {
-            item { Field("Domain / workgroup (optional)", domain, { domain = it }) }
+            Field("Domain / workgroup (optional)", domain, { domain = it })
         } else {
-            item {
+            run {
                 ListItem(
                     selected = false,
                     onClick = { insecureTls = !insecureTls },
@@ -123,14 +130,17 @@ fun ServerEditScreen(existingId: String?, prefill: ServerConfig?, onDone: () -> 
                 )
             }
         }
-        status?.let { item { Text(it, style = MaterialTheme.typography.bodyLarge, color = MaterialTheme.colorScheme.primary) } }
-        item {
+        status?.let { Text(it, style = MaterialTheme.typography.bodyLarge, color = MaterialTheme.colorScheme.primary) }
+        run {
             Row(horizontalArrangement = Arrangement.spacedBy(16.dp), modifier = Modifier.padding(top = 8.dp)) {
                 Button(onClick = {
                     build()?.let { ServerRepository.save(it); SmbSessionPool.invalidate(it.id); onDone() }
                 }) { Text("Save") }
-                OutlinedButton(enabled = !testing, onClick = {
-                    val cfg = build() ?: return@OutlinedButton
+                // Not disabled while testing: disabling the focused button would drop D-pad focus.
+                OutlinedButton(onClick = {
+                    if (testing) return@OutlinedButton
+                    // Throwaway id: the test never shares (or blocks) the saved server's session.
+                    val cfg = build()?.copy(id = "test-" + java.util.UUID.randomUUID()) ?: return@OutlinedButton
                     testing = true
                     status = "Connecting…"
                     scope.launch {
@@ -160,6 +170,10 @@ fun ServerEditScreen(existingId: String?, prefill: ServerConfig?, onDone: () -> 
     LaunchedEffect(Unit) { runCatching { firstFocus.requestFocus() } }
 }
 
+/**
+ * TV-friendly text field: a focusable row showing the value. OK opens an edit dialog, so D-pad
+ * navigation through the form never gets trapped by the on-screen keyboard.
+ */
 @Composable
 private fun Field(
     label: String,
@@ -169,20 +183,71 @@ private fun Field(
     password: Boolean = false,
     keyboardType: KeyboardType = KeyboardType.Text,
 ) {
-    Column(Modifier.widthIn(max = 720.dp).fillMaxWidth()) {
-        OutlinedTextField(
-            value = value,
-            onValueChange = onChange,
-            label = { androidx.compose.material3.Text(label) },
-            placeholder = if (placeholder.isNotEmpty()) ({ androidx.compose.material3.Text(placeholder) }) else null,
-            singleLine = true,
-            visualTransformation = if (password) PasswordVisualTransformation() else androidx.compose.ui.text.input.VisualTransformation.None,
-            keyboardOptions = KeyboardOptions(
-                keyboardType = if (password) KeyboardType.Password else keyboardType,
-                imeAction = ImeAction.Next,
-                autoCorrectEnabled = false,
-            ),
-            modifier = Modifier.fillMaxWidth(),
-        )
+    var editing by remember { mutableStateOf(false) }
+    ListItem(
+        selected = false,
+        onClick = { editing = true },
+        headlineContent = { Text(label) },
+        supportingContent = {
+            Text(
+                when {
+                    value.isEmpty() -> placeholder.ifEmpty { "Not set" }
+                    password -> "\u2022".repeat(value.length.coerceAtMost(12))
+                    else -> value
+                },
+                maxLines = 1,
+            )
+        },
+        modifier = Modifier.widthIn(max = 720.dp),
+    )
+    if (editing) {
+        EditDialog(label, value, placeholder, password, keyboardType,
+            onDismiss = { editing = false },
+            onConfirm = { onChange(it); editing = false })
     }
+}
+
+@Composable
+private fun EditDialog(
+    label: String,
+    initial: String,
+    placeholder: String,
+    password: Boolean,
+    keyboardType: KeyboardType,
+    onDismiss: () -> Unit,
+    onConfirm: (String) -> Unit,
+) {
+    var text by remember { mutableStateOf(androidx.compose.ui.text.input.TextFieldValue(initial, androidx.compose.ui.text.TextRange(initial.length))) }
+    val focus = remember { FocusRequester() }
+    androidx.compose.ui.window.Dialog(onDismissRequest = onDismiss) {
+        androidx.tv.material3.Surface(shape = androidx.compose.foundation.shape.RoundedCornerShape(16.dp)) {
+            Column(Modifier.padding(24.dp).widthIn(min = 480.dp, max = 640.dp)) {
+                OutlinedTextField(
+                    value = text,
+                    onValueChange = { text = it },
+                    label = { androidx.compose.material3.Text(label) },
+                    placeholder = if (placeholder.isNotEmpty()) ({ androidx.compose.material3.Text(placeholder) }) else null,
+                    singleLine = true,
+                    visualTransformation = if (password) PasswordVisualTransformation() else androidx.compose.ui.text.input.VisualTransformation.None,
+                    keyboardOptions = KeyboardOptions(
+                        keyboardType = if (password) KeyboardType.Password else keyboardType,
+                        imeAction = ImeAction.Done,
+                        autoCorrectEnabled = false,
+                    ),
+                    keyboardActions = androidx.compose.foundation.text.KeyboardActions(onDone = { onConfirm(text.text) }),
+                    modifier = Modifier.fillMaxWidth().focusRequester(focus).onPreviewKeyEvent { ev ->
+                        // Hardware/remote Enter confirms too.
+                        if (ev.type == androidx.compose.ui.input.key.KeyEventType.KeyUp &&
+                            (ev.key == androidx.compose.ui.input.key.Key.Enter || ev.key == androidx.compose.ui.input.key.Key.NumPadEnter)
+                        ) { onConfirm(text.text); true } else false
+                    },
+                )
+                Row(horizontalArrangement = Arrangement.spacedBy(12.dp), modifier = Modifier.padding(top = 16.dp)) {
+                    Button(onClick = { onConfirm(text.text) }) { Text("OK") }
+                    OutlinedButton(onClick = onDismiss) { Text("Cancel") }
+                }
+            }
+        }
+    }
+    LaunchedEffect(Unit) { kotlinx.coroutines.delay(100); runCatching { focus.requestFocus() } }
 }

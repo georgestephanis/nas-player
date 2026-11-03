@@ -30,7 +30,12 @@ fun NasTheme(content: @Composable () -> Unit) {
                 surface = SurfaceColor,
                 surfaceVariant = Color(0xFF252B35),
             ),
-            content = content,
-        )
+        ) {
+            // TV Text reads LocalContentColor; without a Surface it defaults to black.
+            androidx.compose.runtime.CompositionLocalProvider(
+                androidx.tv.material3.LocalContentColor provides Color(0xFFE6EAF0),
+                content = content,
+            )
+        }
     }
 }

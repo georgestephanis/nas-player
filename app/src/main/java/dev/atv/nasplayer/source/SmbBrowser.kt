@@ -46,6 +46,7 @@ class SmbBrowser(override val server: ServerConfig) : MediaBrowser {
     }
 
     private fun listShares(): List<RemoteEntry> {
+        val t0 = android.os.SystemClock.elapsedRealtime()
         val session = SmbSessionPool.session(server)
         val transport = SMBTransportFactories.SRVSVC.getTransport(session)
         return ServerService(transport).shares1
@@ -53,6 +54,7 @@ class SmbBrowser(override val server: ServerConfig) : MediaBrowser {
             .filter { (it.type and 0xFFFF) == 0 && !it.netName.endsWith("$") }
             .map { RemoteEntry(name = it.netName, path = "/${it.netName}", isDirectory = true) }
             .let(::sortEntries)
+            .also { android.util.Log.i("NasSmb", "share enumeration took ${android.os.SystemClock.elapsedRealtime() - t0}ms") }
     }
 
     override fun playbackUri(path: String): Uri = smbUri(server.id, path)

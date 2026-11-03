@@ -113,6 +113,7 @@ fun ExoHost(
             }
         }
         player.addListener(listener)
+        if (dev.atv.nasplayer.BuildConfig.DEBUG) player.addAnalyticsListener(androidx.media3.exoplayer.util.EventLogger("NasExo"))
         player.setMediaItem(item, session.startMs)
         player.prepare()
         player.playWhenReady = true

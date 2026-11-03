@@ -30,39 +30,42 @@ object SmbSessionPool {
         val shares = HashMap<String, DiskShare>()
     }
 
+    // Short-lived lock for the map only; slow network work happens under a per-server lock, so one
+    // unreachable NAS never stalls another server (or the UI thread calling invalidate()).
     private val entries = HashMap<String, Entry>()
+    private val serverLocks = HashMap<String, Any>()
 
-    @Synchronized
+    private fun lockFor(id: String): Any = synchronized(serverLocks) { serverLocks.getOrPut(id) { Any() } }
+
     fun session(config: ServerConfig): Session = entry(config).session
 
-    @Synchronized
     fun share(serverId: String, shareName: String): DiskShare {
         val config = ServerRepository.get(serverId) ?: throw IOException("Unknown server")
         return share(config, shareName)
     }
 
-    @Synchronized
-    fun share(config: ServerConfig, shareName: String): DiskShare {
+    fun share(config: ServerConfig, shareName: String): DiskShare = synchronized(lockFor(config.id)) {
         val e = entry(config)
         e.shares[shareName.lowercase()]?.takeIf { it.isConnected }?.let { return it }
         val share = e.session.connectShare(shareName) as? DiskShare
             ?: throw IOException("\"$shareName\" is not a file share")
         e.shares[shareName.lowercase()] = share
-        return share
+        share
     }
 
-    /** Drop a cached connection, e.g. after credentials changed or the NAS went to sleep. */
-    @Synchronized
+    /** Drop a cached connection (credentials changed, NAS slept). Never blocks: closing happens off-thread. */
     fun invalidate(serverId: String) {
-        entries.remove(serverId)?.let { runCatching { it.connection.close(true) } }
+        val old = synchronized(entries) { entries.remove(serverId) } ?: return
+        Thread({ runCatching { old.connection.close(true) } }, "smb-close").apply { isDaemon = true }.start()
     }
 
-    private fun entry(config: ServerConfig): Entry {
+    private fun entry(config: ServerConfig): Entry = synchronized(lockFor(config.id)) {
         val serverId = config.id
-        val cached = entries[serverId]
+        val cached = synchronized(entries) { entries[serverId] }
         if (cached != null && cached.config == config && cached.connection.isConnected) return cached
-        cached?.let { runCatching { it.connection.close(true) } }
+        if (cached != null) invalidate(serverId)
 
+        val t0 = android.os.SystemClock.elapsedRealtime()
         val connection = if (config.port != null) client.connect(config.host, config.port) else client.connect(config.host)
         val auth = when {
             config.username.isBlank() -> AuthenticationContext.guest()
@@ -79,6 +82,7 @@ object SmbSessionPool {
                 throw e
             }
         }
-        return Entry(config, connection, session).also { entries[serverId] = it }
+        android.util.Log.i("NasSmb", "connected+authenticated ${config.host} in ${android.os.SystemClock.elapsedRealtime() - t0}ms (${connection.negotiatedProtocol.dialect})")
+        Entry(config, connection, session).also { synchronized(entries) { entries[serverId] = it } }
     }
 }

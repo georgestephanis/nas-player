@@ -15,7 +15,17 @@ object SecretBox {
     private const val TRANSFORM = "AES/GCM/NoPadding"
     private const val IV_LEN = 12
 
+    // Hardware-backed keystore calls can take seconds on TV SoCs: cache the handle and only ever
+    // call into SecretBox from a background thread.
+    @Volatile private var cached: SecretKey? = null
+
+    @Synchronized
     private fun key(): SecretKey {
+        cached?.let { return it }
+        return loadOrCreate().also { cached = it }
+    }
+
+    private fun loadOrCreate(): SecretKey {
         val ks = KeyStore.getInstance("AndroidKeyStore").apply { load(null) }
         (ks.getKey(ALIAS, null) as? SecretKey)?.let { return it }
         val gen = KeyGenerator.getInstance(KeyProperties.KEY_ALGORITHM_AES, "AndroidKeyStore")

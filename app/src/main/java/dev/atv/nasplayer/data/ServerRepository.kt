@@ -2,9 +2,15 @@ package dev.atv.nasplayer.data
 
 import android.content.Context
 import android.content.SharedPreferences
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.withLock
 import org.json.JSONArray
 import org.json.JSONObject
 
@@ -14,9 +20,18 @@ object ServerRepository {
     private val _servers = MutableStateFlow<List<ServerConfig>>(emptyList())
     val servers: StateFlow<List<ServerConfig>> = _servers.asStateFlow()
 
+    /** Disk + Keystore work runs here, never on the main thread (keystore calls can block for seconds). */
+    private val io = CoroutineScope(SupervisorJob() + Dispatchers.IO.limitedParallelism(1))
+    private val writeLock = Mutex()
+    private val _loaded = MutableStateFlow(false)
+    val loaded: StateFlow<Boolean> = _loaded.asStateFlow()
+
     fun init(context: Context) {
         prefs = context.getSharedPreferences("servers", Context.MODE_PRIVATE)
-        _servers.value = load()
+        io.launch {
+            _servers.value = load()
+            _loaded.value = true
+        }
     }
 
     fun get(id: String): ServerConfig? = _servers.value.firstOrNull { it.id == id }
@@ -33,7 +48,13 @@ object ServerRepository {
         ResumeStore.clearServer(id)
     }
 
+    /** Updates the in-memory list immediately; encrypts and writes in the background. */
     private fun persist(list: List<ServerConfig>) {
+        _servers.value = list
+        io.launch { writeLock.withLock { write(list) } }
+    }
+
+    private fun write(list: List<ServerConfig>) {
         val arr = JSONArray()
         list.forEach { s ->
             arr.put(JSONObject().apply {
@@ -49,8 +70,7 @@ object ServerRepository {
                 put("allowInsecureTls", s.allowInsecureTls)
             })
         }
-        prefs.edit().putString(KEY, arr.toString()).apply()
-        _servers.value = list
+        prefs.edit().putString(KEY, arr.toString()).commit()
     }
 
     private fun load(): List<ServerConfig> {
