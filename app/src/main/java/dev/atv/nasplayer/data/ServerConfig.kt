@@ -1,0 +1,34 @@
+package dev.atv.nasplayer.data
+
+import java.util.UUID
+
+enum class ServerType(val label: String) {
+    SMB("SMB / Windows share"),
+    WEBDAV("WebDAV / HTTP"),
+}
+
+/**
+ * A saved network source.
+ *
+ * - SMB: [host] is a hostname or IP, [path] optionally pins a share (and sub-folder) such as "Media/Movies".
+ * - WebDAV: [host] is the full base URL, e.g. "http://192.168.1.10:5005/video".
+ */
+data class ServerConfig(
+    val id: String = UUID.randomUUID().toString(),
+    val name: String,
+    val type: ServerType,
+    val host: String,
+    val port: Int? = null,
+    val path: String = "",
+    val username: String = "",
+    val password: String = "",
+    val domain: String = "",
+    val allowInsecureTls: Boolean = false,
+) {
+    val subtitle: String
+        get() = when (type) {
+            ServerType.SMB -> "smb://" + host + (port?.let { ":$it" } ?: "") +
+                (path.trim('/').takeIf { it.isNotEmpty() }?.let { "/$it" } ?: "")
+            ServerType.WEBDAV -> host
+        }
+}
