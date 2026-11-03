@@ -7,7 +7,10 @@ activityCompose = "1.13.0"
 lifecycle = "2.11.0"
 coreKtx = "1.19.1"
 coroutines = "1.11.0"
-media3 = "1.11.1"
+# Pinned to the Media3 line the Jellyfin FFmpeg decoder is built against.
+media3 = "1.9.4"
+media3Ffmpeg = "1.9.0+1"
+libvlc = "3.7.7"
 smbj = "0.15.0"
 smbjRpc = "0.12.13"
 bouncycastle = "1.86"
@@ -30,6 +33,8 @@ media3-exoplayer = { module = "androidx.media3:media3-exoplayer", version.ref = 
 media3-ui = { module = "androidx.media3:media3-ui", version.ref = "media3" }
 media3-datasource = { module = "androidx.media3:media3-datasource", version.ref = "media3" }
 media3-datasource-okhttp = { module = "androidx.media3:media3-datasource-okhttp", version.ref = "media3" }
+media3-ffmpeg = { module = "org.jellyfin.media3:media3-ffmpeg-decoder", version.ref = "media3Ffmpeg" }
+libvlc = { module = "org.videolan.android:libvlc-all", version.ref = "libvlc" }
 smbj = { module = "com.hierynomus:smbj", version.ref = "smbj" }
 smbj-rpc = { module = "com.rapid7.client:dcerpc", version.ref = "smbjRpc" }
 bouncycastle = { module = "org.bouncycastle:bcprov-jdk18on", version.ref = "bouncycastle" }

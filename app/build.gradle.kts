@@ -5,7 +5,9 @@ plugins {
 
 android {
     namespace = "dev.atv.nasplayer"
-    compileSdk = 36
+    compileSdk {
+        version = release(37) { minorApiLevel = 2 }
+    }
 
     defaultConfig {
         applicationId = "dev.atv.nasplayer"
@@ -13,6 +15,7 @@ android {
         targetSdk = 36
         versionCode = 1
         versionName = "1.0"
+
     }
 
     buildTypes {
@@ -23,6 +26,18 @@ android {
         }
     }
 
+    // One APK per ABI keeps each download small (libVLC + FFmpeg are mostly native code).
+    // armeabi-v7a: Chromecast with Google TV (32-bit userspace) and older boxes.
+    // arm64-v8a:   Google TV Streamer, Shield, most current TVs.  x86_64: emulator.
+    splits {
+        abi {
+            isEnable = true
+            reset()
+            include("armeabi-v7a", "arm64-v8a", "x86_64")
+            isUniversalApk = true
+        }
+    }
+
     compileOptions {
         sourceCompatibility = JavaVersion.VERSION_17
         targetCompatibility = JavaVersion.VERSION_17
@@ -30,6 +45,7 @@ android {
 
     buildFeatures {
         compose = true
+        buildConfig = true
     }
 
     packaging {
@@ -63,6 +79,8 @@ dependencies {
     implementation(libs.media3.ui)
     implementation(libs.media3.datasource)
     implementation(libs.media3.datasource.okhttp)
+    implementation(libs.media3.ffmpeg)
+    implementation(libs.libvlc)
 
     implementation(libs.smbj)
     implementation(libs.smbj.rpc)

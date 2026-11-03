@@ -46,7 +46,7 @@ class WebDavBrowser(override val server: ServerConfig) : MediaBrowser {
         client(server).newCall(request).execute().use { resp ->
             if (resp.code == 401) throw IOException("Authentication failed (HTTP 401)")
             if (!resp.isSuccessful) throw IOException("Server returned HTTP ${resp.code}")
-            val xml = resp.body.string()
+            val xml = resp.body?.string().orEmpty()
             val selfPath = decodedPath(url)
             sortEntries(
                 parse(xml).filter { it.hrefPath.trimEnd('/') != selfPath.trimEnd('/') }
