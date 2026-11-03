@@ -19,6 +19,24 @@ object Settings {
         get() = prefs.getBoolean("autoPlayNext", true)
         set(v) = prefs.edit().putBoolean("autoPlayNext", v).apply()
 
+    var sortOrder: dev.atv.nasplayer.source.SortOrder
+        get() = runCatching { dev.atv.nasplayer.source.SortOrder.valueOf(prefs.getString("sort", null)!!) }
+            .getOrDefault(dev.atv.nasplayer.source.SortOrder.NAME)
+        set(v) = prefs.edit().putString("sort", v.name).apply()
+
+    /** Next/previous and auto-play step through videos, music and photos together, in folder order. */
+    var mixedQueue: Boolean
+        get() = prefs.getBoolean("mixedQueue", true)
+        set(v) = prefs.edit().putBoolean("mixedQueue", v).apply()
+
+    var showThumbnails: Boolean
+        get() = prefs.getBoolean("thumbnails", true)
+        set(v) = prefs.edit().putBoolean("thumbnails", v).apply()
+
+    var slideshowSeconds: Int
+        get() = prefs.getInt("slideshowSeconds", 6)
+        set(v) = prefs.edit().putInt("slideshowSeconds", v).apply()
+
     var showAllFiles: Boolean
         get() = prefs.getBoolean("showAllFiles", false)
         set(v) = prefs.edit().putBoolean("showAllFiles", v).apply()

@@ -29,6 +29,10 @@ fun SettingsScreen(onOpenLog: () -> Unit) {
     var engine by remember { mutableStateOf(Settings.enginePreference) }
     var autoNext by remember { mutableStateOf(Settings.autoPlayNext) }
     var showAll by remember { mutableStateOf(Settings.showAllFiles) }
+    var mixed by remember { mutableStateOf(Settings.mixedQueue) }
+    var thumbs by remember { mutableStateOf(Settings.showThumbnails) }
+    var slide by remember { mutableStateOf(Settings.slideshowSeconds) }
+    val context = androidx.compose.ui.platform.LocalContext.current
     val first = remember { FocusRequester() }
     val w = Modifier.widthIn(max = 760.dp)
 
@@ -62,6 +66,50 @@ fun SettingsScreen(onOpenLog: () -> Unit) {
                 onClick = { autoNext = !autoNext; Settings.autoPlayNext = autoNext },
                 headlineContent = { Text("Play next file in folder automatically") },
                 trailingContent = { Switch(checked = autoNext, onCheckedChange = null) },
+                modifier = w,
+            )
+        }
+        item {
+            ListItem(
+                selected = false,
+                onClick = { mixed = !mixed; Settings.mixedQueue = mixed },
+                headlineContent = { Text("Next / previous includes all media types") },
+                supportingContent = { Text("Step from a video to a photo to a song in folder order. Off: stay within the same type.") },
+                trailingContent = { Switch(checked = mixed, onCheckedChange = null) },
+                modifier = w,
+            )
+        }
+        item {
+            ListItem(
+                selected = false,
+                onClick = {
+                    slide = when (slide) { 3 -> 6; 6 -> 10; 10 -> 20; else -> 3 }
+                    Settings.slideshowSeconds = slide
+                },
+                headlineContent = { Text("Slideshow speed") },
+                supportingContent = { Text("$slide seconds per photo (press OK on a photo to start)") },
+                modifier = w,
+            )
+        }
+        item {
+            ListItem(
+                selected = false,
+                onClick = { thumbs = !thumbs; Settings.showThumbnails = thumbs },
+                headlineContent = { Text("Show thumbnails") },
+                supportingContent = { Text("Video frames, posters, cover art and photo previews. Cached after first view.") },
+                trailingContent = { Switch(checked = thumbs, onCheckedChange = null) },
+                modifier = w,
+            )
+        }
+        item {
+            ListItem(
+                selected = false,
+                onClick = {
+                    dev.atv.nasplayer.images.ThumbnailFetcher.clearCache(context)
+                    coil3.SingletonImageLoader.get(context).memoryCache?.clear()
+                    android.widget.Toast.makeText(context, "Thumbnail cache cleared", android.widget.Toast.LENGTH_SHORT).show()
+                },
+                headlineContent = { Text("Clear thumbnail cache") },
                 modifier = w,
             )
         }

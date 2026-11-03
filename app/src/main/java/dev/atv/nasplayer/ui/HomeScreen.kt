@@ -32,6 +32,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.foundation.background
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.graphics.Color
@@ -75,7 +76,9 @@ fun HomeScreen(
     val unsaved = discovered.filter { d -> servers.none { it.host.equals(d.host, true) || it.host.equals(d.name, true) } }
     val firstFocus = remember { FocusRequester() }
 
+    val listState = androidx.compose.foundation.lazy.rememberLazyListState()
     LazyColumn(
+        state = listState,
         modifier = Modifier.fillMaxSize(),
         contentPadding = PaddingValues(vertical = 36.dp),
         verticalArrangement = Arrangement.spacedBy(28.dp),
@@ -91,7 +94,11 @@ fun HomeScreen(
             item {
                 Shelf("Continue watching") {
                     items(continueWatching, key = { it.serverId + it.path }) { entry ->
-                        ResumeCard(entry, servers.firstOrNull { it.id == entry.serverId }?.name.orEmpty()) {
+                        ResumeCard(
+                            entry,
+                            servers.firstOrNull { it.id == entry.serverId }?.name.orEmpty(),
+                            if (entry == continueWatching.first()) Modifier.focusRequester(firstFocus) else Modifier,
+                        ) {
                             val server = ServerRepository.get(entry.serverId) ?: return@ResumeCard
                             scope.launch {
                                 val siblings = runCatching { MediaBrowser.forServer(server).list(entry.folder) }.getOrNull()
@@ -114,7 +121,7 @@ fun HomeScreen(
                         subtitle = server.subtitle,
                         onClick = { onOpenServer(server) },
                         onLongClick = { onEditServer(server) },
-                        modifier = if (server == servers.first()) Modifier.focusRequester(firstFocus) else Modifier,
+                        modifier = if (continueWatching.isEmpty() && server == servers.first()) Modifier.focusRequester(firstFocus) else Modifier,
                     )
                 }
                 item(key = "add") {
@@ -154,7 +161,10 @@ fun HomeScreen(
         }
     }
 
-    LaunchedEffect(Unit) { runCatching { firstFocus.requestFocus() } }
+    LaunchedEffect(Unit) {
+        runCatching { firstFocus.requestFocus() }
+        listState.scrollToItem(0)
+    }
 }
 
 private fun DiscoveredServer.toConfig() = ServerConfig(
@@ -203,36 +213,36 @@ private fun TileCard(
 }
 
 @Composable
-private fun ResumeCard(entry: ResumeEntry, serverName: String, onClick: () -> Unit) {
+private fun ResumeCard(entry: ResumeEntry, serverName: String, modifier: Modifier, onClick: () -> Unit) {
     val kind = MediaTypes.kindOf(entry.name)
-    Card(onClick = onClick, modifier = Modifier.width(320.dp).height(150.dp)) {
-        Column(Modifier.fillMaxSize().padding(20.dp), verticalArrangement = Arrangement.SpaceBetween) {
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                Icon(if (kind == MediaKind.AUDIO) Icons.Default.MusicNote else Icons.Default.Movie, null, Modifier.size(28.dp))
-                Spacer(Modifier.width(12.dp))
+    val context = LocalContext.current
+    Card(onClick = onClick, modifier = modifier.width(320.dp).height(250.dp)) {
+        Column(Modifier.fillMaxSize()) {
+            Box(Modifier.fillMaxWidth().height(160.dp).background(Color.Black), contentAlignment = Alignment.Center) {
+                Icon(if (kind == MediaKind.AUDIO) Icons.Default.MusicNote else Icons.Default.Movie, null, Modifier.size(40.dp))
+                coil3.compose.AsyncImage(
+                    model = coil3.request.ImageRequest.Builder(context)
+                        .data(dev.atv.nasplayer.images.Thumb(entry.serverId, entry.path, kind, -2, 0))
+                        .build(),
+                    contentDescription = null,
+                    contentScale = androidx.compose.ui.layout.ContentScale.Fit,
+                    modifier = Modifier.fillMaxSize(),
+                )
+                LinearProgressIndicator(
+                    progress = { entry.progress },
+                    modifier = Modifier.fillMaxWidth().height(4.dp).align(Alignment.BottomCenter),
+                    color = MaterialTheme.colorScheme.primary,
+                    trackColor = Color.White.copy(alpha = 0.25f),
+                )
+            }
+            Column(Modifier.padding(horizontal = 16.dp, vertical = 12.dp)) {
+                Text(entry.name.substringBeforeLast('.'), style = MaterialTheme.typography.titleMedium, maxLines = 1, overflow = TextOverflow.Ellipsis)
                 Text(
                     "${formatDuration(entry.durationMs - entry.positionMs)} left · $serverName",
                     style = MaterialTheme.typography.bodySmall,
                     maxLines = 1,
-                    overflow = TextOverflow.Ellipsis,
+                    color = LocalContentColorAlpha(),
                 )
-            }
-            Column {
-                Text(
-                    entry.name.substringBeforeLast('.'),
-                    style = MaterialTheme.typography.titleMedium,
-                    maxLines = 2,
-                    overflow = TextOverflow.Ellipsis,
-                )
-                Spacer(Modifier.height(8.dp))
-                Box {
-                    LinearProgressIndicator(
-                        progress = { entry.progress },
-                        modifier = Modifier.fillMaxWidth().height(4.dp),
-                        color = MaterialTheme.colorScheme.primary,
-                        trackColor = Color.White.copy(alpha = 0.2f),
-                    )
-                }
             }
         }
     }

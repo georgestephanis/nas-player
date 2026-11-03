@@ -82,6 +82,9 @@ dependencies {
     implementation(libs.media3.ffmpeg)
     implementation(libs.libvlc)
 
+    implementation(libs.coil.compose)
+    implementation(libs.coil.gif)
+
     implementation(libs.smbj)
     implementation(libs.smbj.rpc)
     implementation(libs.bouncycastle)

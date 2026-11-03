@@ -180,10 +180,23 @@ fun ExoHost(
         if (v != null && v.isControllerFullyVisible) v.hideController() else onExit()
     }
 
+    // Music: show embedded cover art (ExoPlayer reads it from tags), falling back to folder art.
+    val isAudio = dev.atv.nasplayer.source.MediaTypes.kindOf(request.items[session.index]) == dev.atv.nasplayer.source.MediaKind.AUDIO
+    LaunchedEffect(session) {
+        if (!isAudio) return@LaunchedEffect
+        val path = joinPath(request.folder, request.items[session.index])
+        val req = coil3.request.ImageRequest.Builder(context)
+            .data(dev.atv.nasplayer.images.Thumb(server.id, path, dev.atv.nasplayer.source.MediaKind.AUDIO, -1, 0))
+            .build()
+        val img = (coil3.SingletonImageLoader.get(context).execute(req) as? coil3.request.SuccessResult)?.image
+        if (img != null) viewRef[0]?.defaultArtwork = android.graphics.drawable.BitmapDrawable(context.resources, (img as coil3.BitmapImage).bitmap)
+    }
+
     AndroidView(
         modifier = Modifier.fillMaxSize(),
         factory = { ctx ->
             PlayerView(ctx).apply {
+                artworkDisplayMode = PlayerView.ARTWORK_DISPLAY_MODE_FIT
                 this.player = controlled
                 useController = true
                 controllerShowTimeoutMs = 4_000

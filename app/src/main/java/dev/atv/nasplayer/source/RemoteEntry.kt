@@ -1,6 +1,6 @@
 package dev.atv.nasplayer.source
 
-enum class MediaKind { FOLDER, VIDEO, AUDIO, SUBTITLE, OTHER }
+enum class MediaKind { FOLDER, VIDEO, AUDIO, IMAGE, SUBTITLE, OTHER }
 
 data class RemoteEntry(
     val name: String,
@@ -22,6 +22,13 @@ object MediaTypes {
         "mp3", "flac", "m4a", "aac", "ogg", "oga", "opus", "wav", "wma", "alac", "aiff", "aif", "mka", "ape", "wv",
     )
     private val subtitle = setOf("srt", "vtt", "ass", "ssa", "ttml")
+    private val image = setOf("jpg", "jpeg", "png", "webp", "gif", "bmp", "heic", "heif", "avif")
+
+    /** Kinds that open in the player screen and take part in next/previous. */
+    val playable = setOf(MediaKind.VIDEO, MediaKind.AUDIO, MediaKind.IMAGE)
+
+    /** Folder artwork names used by Kodi, Plex, Jellyfin and music rippers. */
+    val folderArtNames = listOf("folder", "poster", "cover", "front", "album", "thumb", "fanart", "default")
 
     fun extension(name: String) = name.substringAfterLast('.', "").lowercase()
 
@@ -29,6 +36,7 @@ object MediaTypes {
         in video -> MediaKind.VIDEO
         in audio -> MediaKind.AUDIO
         in subtitle -> MediaKind.SUBTITLE
+        in image -> MediaKind.IMAGE
         else -> MediaKind.OTHER
     }
 }

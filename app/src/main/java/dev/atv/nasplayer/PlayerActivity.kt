@@ -78,8 +78,10 @@ fun PlayerScreen(server: ServerConfig, request: PlaybackRequest, onExit: () -> U
     var resumePrompt by remember { mutableStateOf<Pair<Int, ResumeEntry>?>(null) }
     var error by remember { mutableStateOf<Pair<PlaybackSession, String>?>(null) }
     var nonce by remember { mutableIntStateOf(0) }
+    var slideshow by remember { mutableStateOf(false) }
 
     fun pathOf(i: Int) = joinPath(request.folder, request.items[i])
+    fun isImage(i: Int) = dev.atv.nasplayer.source.MediaTypes.kindOf(request.items[i]) == dev.atv.nasplayer.source.MediaKind.IMAGE
     fun engineFor(i: Int) = request.forcedEngine ?: EngineChooser.initialEngine(request.items[i], Settings.enginePreference)
 
     fun start(i: Int, startMs: Long, engine: Engine = engineFor(i)) {
@@ -89,6 +91,7 @@ fun PlayerScreen(server: ServerConfig, request: PlaybackRequest, onExit: () -> U
     }
 
     fun begin(i: Int, ask: Boolean) {
+        if (isImage(i)) { start(i, 0); return }
         val saved = ResumeStore.get(server.id, pathOf(i))?.takeIf { !it.watched && it.positionMs > 15_000 }
         when {
             saved == null -> start(i, 0)
@@ -99,12 +102,17 @@ fun PlayerScreen(server: ServerConfig, request: PlaybackRequest, onExit: () -> U
 
     fun next(auto: Boolean) {
         val s = session ?: return
-        if (s.index + 1 < request.items.size && (!auto || Settings.autoPlayNext)) begin(s.index + 1, ask = false) else onExit()
+        val hasNext = s.index + 1 < request.items.size
+        when {
+            hasNext && (!auto || Settings.autoPlayNext || slideshow) -> begin(s.index + 1, ask = false)
+            !auto && !hasNext && isImage(s.index) -> Unit // stay on the last photo
+            else -> onExit()
+        }
     }
 
     fun previous() {
         val s = session ?: return
-        if (s.index > 0) begin(s.index - 1, ask = false) else start(s.index, 0, s.engine)
+        if (s.index > 0) begin(s.index - 1, ask = false) else if (!isImage(s.index)) start(s.index, 0, s.engine)
     }
 
     LaunchedEffect(Unit) { begin(request.index, ask = true) }
@@ -115,8 +123,22 @@ fun PlayerScreen(server: ServerConfig, request: PlaybackRequest, onExit: () -> U
             val onProgress: (Long, Long) -> Unit = { pos, dur ->
                 ResumeStore.save(server.id, request.folder, request.items[s.index], pos, dur)
             }
-            when (s.engine) {
-                Engine.EXO -> ExoHost(
+            when {
+                isImage(s.index) -> dev.atv.nasplayer.playback.ImageHost(
+                    server = server,
+                    request = request,
+                    session = s,
+                    slideshow = slideshow,
+                    onSlideshowChange = { slideshow = it },
+                    onNext = { next(auto = false) },
+                    onPrevious = ::previous,
+                    onAdvance = {
+                        // Slideshow stops at the end of the folder rather than leaving the player.
+                        if (s.index + 1 < request.items.size) begin(s.index + 1, ask = false) else slideshow = false
+                    },
+                    onExit = onExit,
+                )
+                s.engine == Engine.EXO -> ExoHost(
                     server = server,
                     request = request,
                     session = s,
@@ -131,7 +153,7 @@ fun PlayerScreen(server: ServerConfig, request: PlaybackRequest, onExit: () -> U
                     onError = { msg -> error = s to msg },
                     onExit = onExit,
                 )
-                Engine.VLC -> VlcHost(
+                else -> VlcHost(
                     server = server,
                     request = request,
                     session = s,

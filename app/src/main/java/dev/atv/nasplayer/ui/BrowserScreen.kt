@@ -22,6 +22,8 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.InsertDriveFile
 import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material.icons.filled.Folder
+import androidx.compose.material.icons.filled.Image
+import androidx.compose.material.icons.automirrored.filled.Sort
 import androidx.compose.material.icons.filled.Movie
 import androidx.compose.material.icons.filled.MusicNote
 import androidx.compose.material3.LinearProgressIndicator
@@ -35,6 +37,8 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
+import androidx.compose.foundation.background
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.graphics.Color
@@ -85,6 +89,9 @@ fun BrowserScreen(
     var reload by remember { mutableStateOf(0) }
     var focusPath by remember { mutableStateOf<String?>(null) }
     var menuFor by remember { mutableStateOf<RemoteEntry?>(null) }
+    var sortOrder by remember { mutableStateOf(dev.atv.nasplayer.data.Settings.sortOrder) }
+    var sortMenu by remember { mutableStateOf(false) }
+    val thumbs = remember { dev.atv.nasplayer.data.Settings.showThumbnails }
     val resumeVersion by ResumeStore.version.collectAsState()
     val listState = rememberLazyListState()
     val focusTarget = remember { FocusRequester() }
@@ -114,14 +121,23 @@ fun BrowserScreen(
     BackHandler { goUp() }
 
     Column(Modifier.fillMaxSize().padding(horizontal = 48.dp, vertical = 32.dp)) {
-        Text(server.name, style = MaterialTheme.typography.headlineMedium)
-        Text(
-            if (path == "/" || path.isEmpty()) "/" else path,
-            style = MaterialTheme.typography.bodyMedium,
-            color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f),
-            maxLines = 1,
-            overflow = TextOverflow.StartEllipsis,
-        )
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            Column(Modifier.weight(1f)) {
+                Text(server.name, style = MaterialTheme.typography.headlineMedium)
+                Text(
+                    if (path == "/" || path.isEmpty()) "/" else path,
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f),
+                    maxLines = 1,
+                    overflow = TextOverflow.StartEllipsis,
+                )
+            }
+            OutlinedButton(onClick = { sortMenu = true }) {
+                Icon(Icons.AutoMirrored.Filled.Sort, contentDescription = null, modifier = Modifier.size(20.dp))
+                Spacer(Modifier.width(8.dp))
+                Text(sortOrder.label)
+            }
+        }
         Spacer(Modifier.height(16.dp))
 
         when (val s = state) {
@@ -142,7 +158,7 @@ fun BrowserScreen(
                 LaunchedEffect(s) { delay(50); runCatching { retryFocus.requestFocus() } }
             }
             is ListState.Loaded -> {
-                val entries = remember(s, resumeVersion) { visibleEntries(s.all) }
+                val entries = remember(s, resumeVersion, sortOrder) { visibleEntries(s.all) }
                 if (entries.isEmpty()) {
                     Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
                         Text("No media in this folder", style = MaterialTheme.typography.titleMedium)
@@ -158,11 +174,14 @@ fun BrowserScreen(
                             EntryRow(
                                 serverId = server.id,
                                 entry = entry,
+                                thumb = if (thumbs) dev.atv.nasplayer.images.Thumb(
+                                    server.id, entry.path, entry.kind, entry.size, entry.modifiedMs, artworkFor(entry, s.all),
+                                ) else null,
                                 modifier = if (i == targetIndex) Modifier.focusRequester(focusTarget) else Modifier,
                                 onClick = {
                                     when {
                                         entry.isDirectory -> { focusPath = null; history.add(entry.path) }
-                                        entry.kind == MediaKind.VIDEO || entry.kind == MediaKind.AUDIO ->
+                                        entry.kind in dev.atv.nasplayer.source.MediaTypes.playable ->
                                             launchPlayback(context, server, path, s.all, entry)
                                         else -> launchPlayback(context, server, path, s.all, entry, Engine.VLC)
                                     }
@@ -178,6 +197,14 @@ fun BrowserScreen(
                     }
                 }
             }
+        }
+    }
+
+    if (sortMenu) {
+        SortDialog(current = sortOrder, onDismiss = { sortMenu = false }) {
+            sortOrder = it
+            dev.atv.nasplayer.data.Settings.sortOrder = it
+            sortMenu = false
         }
     }
 
@@ -204,6 +231,7 @@ fun BrowserScreen(
 private fun EntryRow(
     serverId: String,
     entry: RemoteEntry,
+    thumb: dev.atv.nasplayer.images.Thumb?,
     modifier: Modifier,
     onClick: () -> Unit,
     onLongClick: () -> Unit,
@@ -215,16 +243,18 @@ private fun EntryRow(
         onLongClick = onLongClick,
         modifier = modifier,
         leadingContent = {
-            Icon(
-                when (entry.kind) {
-                    MediaKind.FOLDER -> Icons.Default.Folder
-                    MediaKind.VIDEO -> Icons.Default.Movie
-                    MediaKind.AUDIO -> Icons.Default.MusicNote
-                    else -> Icons.AutoMirrored.Filled.InsertDriveFile
-                },
-                contentDescription = null,
-                modifier = Modifier.size(28.dp),
-            )
+            val icon = when (entry.kind) {
+                MediaKind.FOLDER -> Icons.Default.Folder
+                MediaKind.VIDEO -> Icons.Default.Movie
+                MediaKind.AUDIO -> Icons.Default.MusicNote
+                MediaKind.IMAGE -> Icons.Default.Image
+                else -> Icons.AutoMirrored.Filled.InsertDriveFile
+            }
+            if (thumb == null || entry.kind == MediaKind.OTHER) {
+                Icon(icon, contentDescription = null, modifier = Modifier.size(28.dp))
+            } else {
+                Thumbnail(thumb, icon)
+            }
         },
         headlineContent = { Text(entry.name, maxLines = 1, overflow = TextOverflow.Ellipsis) },
         supportingContent = if (entry.isDirectory || entry.size < 0) null else {
@@ -298,4 +328,53 @@ private fun friendlyError(e: Exception): String {
         e is java.net.UnknownHostException -> "Couldn't find that host name. Try the server's IP address."
         else -> msg
     }
+}
+
+
+@Composable
+private fun Thumbnail(thumb: dev.atv.nasplayer.images.Thumb, fallback: androidx.compose.ui.graphics.vector.ImageVector) {
+    val context = LocalContext.current
+    Box(
+        Modifier
+            .size(width = 112.dp, height = 63.dp)
+            .clip(RoundedCornerShape(6.dp))
+            .background(Color.White.copy(alpha = 0.06f)),
+        contentAlignment = Alignment.Center,
+    ) {
+        coil3.compose.SubcomposeAsyncImage(
+            model = coil3.request.ImageRequest.Builder(context).data(thumb).memoryCacheKey(thumb.cacheKey).build(),
+            contentDescription = null,
+            // Fit, not crop: posters and album art are portrait/square; letterbox them on the tile.
+            contentScale = androidx.compose.ui.layout.ContentScale.Fit,
+            modifier = Modifier.fillMaxSize(),
+            loading = { Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) { Icon(fallback, null, Modifier.size(26.dp)) } },
+            error = { Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) { Icon(fallback, null, Modifier.size(26.dp)) } },
+        )
+    }
+}
+
+@Composable
+private fun SortDialog(
+    current: dev.atv.nasplayer.source.SortOrder,
+    onDismiss: () -> Unit,
+    onPick: (dev.atv.nasplayer.source.SortOrder) -> Unit,
+) {
+    val first = remember { FocusRequester() }
+    Dialog(onDismissRequest = onDismiss) {
+        Surface(shape = RoundedCornerShape(16.dp), modifier = Modifier.width(420.dp)) {
+            Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                Text("Sort by", style = MaterialTheme.typography.titleMedium, modifier = Modifier.padding(8.dp))
+                dev.atv.nasplayer.source.SortOrder.entries.forEach { o ->
+                    ListItem(
+                        selected = o == current,
+                        onClick = { onPick(o) },
+                        headlineContent = { Text(o.label) },
+                        modifier = if (o == current) Modifier.focusRequester(first) else Modifier,
+                    )
+                }
+                Text("Folders are always listed first.", style = MaterialTheme.typography.bodySmall, modifier = Modifier.padding(8.dp))
+            }
+        }
+    }
+    LaunchedEffect(Unit) { delay(50); runCatching { first.requestFocus() } }
 }
