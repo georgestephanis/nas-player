@@ -1,17 +1,71 @@
 # NAS Player
 
-An Android TV / Google TV app for streaming video and music straight from a NAS: SMB (Windows / Samba / TrueNAS / Synology shares) and WebDAV. It has no cloud, no accounts, no media scanning and no metadata scraping. You browse folders and press play.
+An Android TV / Google TV app for watching video, listening to music and viewing photos straight from a NAS over SMB (Windows / Samba / TrueNAS / Synology shares) or WebDAV. It has no cloud, no accounts, no media scanning and no metadata scraping: you browse folders and press play, and everything plays inside the app.
+
+<p align="center">
+  <img src="docs/screenshots/01-home.png" alt="Home screen with Continue watching, saved sources and servers found on the network" width="80%">
+</p>
+
+| | |
+|---|---|
+| ![Movie folders shown with their poster art](docs/screenshots/02-movies.png) | ![TV episodes with thumbnails taken from the video](docs/screenshots/03-episodes.png) |
+| Movie folders use their `poster.jpg` | Episodes get a frame from the video |
+| ![Album tracks with embedded cover art](docs/screenshots/04-album.png) | ![Music playing with cover art and playback controls](docs/screenshots/05-music.png) |
+| Albums show their cover art | Music plays with the cover full-screen |
+| ![Photo folder with previews](docs/screenshots/07-photos.png) | ![Photo viewer with filename, position and slideshow hint](docs/screenshots/06-viewer.png) |
+| Photo folders show previews | Photos open in the built-in viewer |
+| ![Sort menu](docs/screenshots/08-sort.png) | ![Resume or start over prompt](docs/screenshots/09-resume.png) |
+| Sort any folder | Pick up where you left off |
+| ![Settings screen](docs/screenshots/10-settings.png) | ![Playback log listing codecs and decoders per file](docs/screenshots/11-log.png) |
+| Settings | Playback log for diagnosing codec gaps |
+
+*Screenshots are from a Google TV Streamer using a generated demo library (original artwork, test tones and clips).*
 
 ## Features
 
-- **SMB 2/3 and WebDAV** sources, with shares listed automatically and SMB servers discovered over mDNS/Bonjour.
-- **Two playback engines, chosen per file:**
+### Sources
+- **SMB 2/3 and WebDAV.** Leave the share blank to choose from all shares on the server, or pin a share or subfolder such as `Media/Movies`.
+- SMB servers that advertise over **mDNS/Bonjour** (TrueNAS, Synology, QNAP, macOS, Samba with Avahi) appear under "Found on your network". Select one to add it.
+- **Test connection** before saving. Hold OK on a source to edit or remove it.
+
+### Browsing
+- **Thumbnails** for every row, generated once and cached on the device:
+  - video files: a frame from about 10% in, or sibling art such as `Movie-poster.jpg` / `Movie.jpg`;
+  - movie and show folders: `poster.jpg`, `folder.jpg`, `cover.jpg` and the other names Plex, Kodi and Jellyfin use;
+  - music: embedded album art, otherwise the folder's cover;
+  - photos and photo folders: a preview of the image.
+- Artwork files are hidden from listings and from the play queue.
+- **Sorting** per folder: name A–Z / Z–A (natural order, so episode 2 comes before episode 10), newest, oldest, largest, or by type. Folders always come first, and the choice is remembered.
+
+### Playback
+- **Everything plays in-app.** Video, music, photos and the VLC engine all open in the app's own player, and Back returns to the folder you came from.
+- **Next / previous follows the folder** across media types: from a video to a photo to a song, in the folder's sort order. Turn this off in Settings to stay within one type.
+- **Two video/audio engines, chosen per file:**
   - **ExoPlayer (Media3)** first: hardware video decoding, HDR, and surround passthrough to an AV receiver. The [Jellyfin FFmpeg extension](https://github.com/jellyfin/jellyfin-androidx-media) decodes DTS, TrueHD, AC-3/E-AC-3, MP2 and other audio in software when the TV can't.
-  - **libVLC** for containers ExoPlayer can't open at all (WMV/ASF, RealMedia, APE, ...). It also takes over **automatically** when ExoPlayer can't parse a file or decode a track (DivX 3, ProRes, VC-1, ...).
-  - Any file can be forced to either engine from its long-press menu, or globally in Settings.
-- Resume position per file, a "Continue watching" row, watched markers, and auto-play of the next file in the folder (with natural sort, so episode 2 comes before episode 10).
-- Sidecar subtitles (`Movie.srt`, `Movie.en.srt`, `.ass`, `.vtt`) picked up next to the video.
-- **Playback log** (Settings → Playback log): for every file played it records the container, each track's codec, which decoder handled it (hardware codec name, FFmpeg, passthrough, libVLC), and every ExoPlayer→VLC handoff or failure with the reason. "Problems only" groups the missing codec support by frequency. It records server display names and paths only, never hosts or credentials.
+  - **libVLC** for containers ExoPlayer can't open (WMV/ASF, RealMedia, APE, ...). It also takes over **automatically** when ExoPlayer can't parse a file, can't decode a track, or finds no video track (DivX 3, ProRes, VC-1, ...).
+  - Force either engine for one file from its long-press menu, or for everything in Settings.
+- **Photo viewer** for JPEG, PNG, WebP, GIF (animated), BMP, HEIC/HEIF and AVIF (the last two need Android support on the device), with a slideshow at 3, 6, 10 or 20 seconds per photo.
+- Resume position per file, a **Continue watching** row, and watched markers. Mark a file watched or unwatched from its long-press menu.
+- Sidecar subtitles (`Movie.srt`, `Movie.en.srt`, `.ass`, `.ssa`, `.vtt`) next to the video are picked up automatically.
+
+### Playback log
+Settings → Playback log records every attempt: the container, each track's codec, which decoder handled it (hardware codec name, FFmpeg, platform / passthrough, libVLC), every ExoPlayer→VLC handoff or failure with the reason, and any buffering stalls. **Problems only** groups missing codec support by how often it comes up, so you can see what needs adding. The log stores server display names and file paths only, never hosts or credentials.
+
+## Remote controls
+
+| Where | Button | Action |
+|---|---|---|
+| Lists | OK | Open folder / play |
+| | Hold OK | File menu (engine choice, start over, watched) or edit source |
+| Video & music (ExoPlayer) | OK / ◀ ▶ | Show controls / seek |
+| Video (VLC engine) | OK | Play / pause |
+| | ◀ / ▶ | Back 10 s / forward 30 s |
+| | ▲ | Audio and subtitle tracks |
+| | ▼ | Show progress |
+| Photos | ◀ / ▶ | Previous / next item in the folder |
+| | OK | Start / stop slideshow |
+| | ▼ | Show filename and position |
+| Anywhere in the player | ⏭ / ⏮ media keys | Next / previous item |
 
 ## Tested formats
 
@@ -23,26 +77,33 @@ On a Google TV Streamer (Android 14):
 | H.264 + DTS MKV | ExoPlayer | hardware | FFmpeg |
 | HEVC + TrueHD MKV | ExoPlayer | hardware | FFmpeg |
 | MPEG-2 + MP2 TS (broadcast) | ExoPlayer | hardware | FFmpeg |
+| FLAC with embedded cover | ExoPlayer | — | platform |
 | WMV8 + WMA2 | VLC (direct) | libVLC | libVLC |
 | DivX 3 AVI | ExoPlayer → VLC fallback | libVLC | libVLC |
 | ProRes MOV | ExoPlayer → VLC fallback | libVLC | libVLC |
+| JPEG | Photo viewer | Android image decoder | — |
+
+**Throughput:** the release build reads over SMB at 92 Mbit/s on the Streamer's built-in Ethernet, which negotiates at 100 Mbit/s and tops out around 94 Mbit/s of raw TCP. Files averaging above roughly 80 Mbit/s (some UHD remuxes) need a USB-3 gigabit adapter. Debug builds are about three times slower, so judge streaming with a release build.
 
 ## Devices
 
 - **Google TV Streamer** and **Chromecast with Google TV** both run a 32-bit (`armeabi-v7a`) userspace, so install the `armeabi-v7a` APK on them.
 - Most other current TVs and boxes (Shield, recent Sony/TCL sets): `arm64-v8a`.
-- Emulator: `x86_64` (or `arm64-v8a` on Apple Silicon).
+- Emulator: `x86_64`, or `arm64-v8a` on Apple Silicon.
 - Each build also produces a universal APK.
 
 Requires Android 8.0 (API 26) or newer.
 
 ## Building
 
-You need JDK 21 and the Android SDK (platform 37, build-tools).
+You need JDK 21 and the Android SDK (platform 37, build-tools 36).
 
 ```bash
+./gradlew assembleRelease      # APKs in app/build/outputs/apk/release/
 ./gradlew assembleDebug        # APKs in app/build/outputs/apk/debug/
 ```
+
+Release builds are signed with the debug key for side-loading; they are not minified, because smbj relies on reflection.
 
 ### Installing over the network
 
@@ -50,23 +111,30 @@ Enable developer options and network debugging on the TV, then:
 
 ```bash
 adb connect <tv-ip>:5555                       # accept the prompt on the TV
-adb install -r app/build/outputs/apk/debug/app-armeabi-v7a-debug.apk
+adb install -r app/build/outputs/apk/release/app-armeabi-v7a-release.apk
 ```
 
-To read the playback log from a debug build:
+To read the playback log as JSON lines from a **debug** build:
 
 ```bash
 adb shell run-as dev.atv.nasplayer cat files/playback-log.jsonl
 ```
 
+More on the code layout and device testing: [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) and [docs/TESTING.md](docs/TESTING.md).
+
 ## NAS setup tips
 
-- **SMB:** SMB 3 is used when the server offers it, and reads are pipelined, so high-bitrate remuxes stream at link speed. Leave the share field blank to pick from all shares, or pin a share/subfolder such as `Media/Movies`.
+- **Use SMB.** With signing and encryption off it streams at link speed; reads are pipelined with SMB 3. NFS has no good Android client library, and WebDAV is slower and makes seeking harder for VLC.
 - **WebDAV:** enter the full base URL (e.g. `http://nas.local:8080/media`). Self-signed HTTPS can be allowed per source.
-- Credentials are stored in app-private storage and encrypted with the Android Keystore when the device's keystore is responsive.
+- **Artwork:** put `poster.jpg` (or `folder.jpg` / `cover.jpg`) in movie, show and album folders, the same layout Plex, Kodi and Jellyfin use, and it becomes the thumbnail.
+- **Credentials** are kept in app-private storage (backups disabled) and encrypted with the Android Keystore. Some TV firmware has a keystore service that hangs; if it doesn't answer within two seconds the password is stored unencrypted in that same private storage and encrypted on a later save once the keystore responds.
+
+## Roadmap
+
+- USB drives plugged into the TV as sources ([#1](https://github.com/georgestephanis/atv-media-player/issues/1)).
 
 ## License
 
 GPL-3.0-or-later. See [LICENSE](LICENSE).
 
-Bundled components: AndroidX Media3 / ExoPlayer (Apache-2.0), Jellyfin media3-ffmpeg-decoder (GPL-3.0; FFmpeg built with GPL components), libVLC (LGPL-2.1+), smbj and smbj-rpc (Apache-2.0), Bouncy Castle (MIT), OkHttp (Apache-2.0). The banner uses the Inter typeface (SIL OFL 1.1).
+Bundled components: AndroidX Media3 / ExoPlayer (Apache-2.0), Jellyfin media3-ffmpeg-decoder (GPL-3.0; FFmpeg built with GPL components), libVLC (LGPL-2.1+), smbj and smbj-rpc (Apache-2.0), Coil (Apache-2.0), Bouncy Castle (MIT), OkHttp (Apache-2.0). The banner uses the Inter typeface (SIL OFL 1.1).

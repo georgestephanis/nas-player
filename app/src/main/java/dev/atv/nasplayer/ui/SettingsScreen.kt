@@ -136,7 +136,7 @@ fun SettingsScreen(onOpenLog: () -> Unit) {
         item {
             Text(
                 "NAS Player ${BuildConfig.VERSION_NAME} · GPL-3.0-or-later\n" +
-                    "Uses Media3/ExoPlayer (Apache-2.0), Jellyfin FFmpeg decoder (GPL-3.0), libVLC (LGPL-2.1), smbj (Apache-2.0).",
+                    "Uses Media3/ExoPlayer (Apache-2.0), Jellyfin FFmpeg decoder (GPL-3.0), libVLC (LGPL-2.1), smbj (Apache-2.0), Coil (Apache-2.0).",
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.5f),
             )
