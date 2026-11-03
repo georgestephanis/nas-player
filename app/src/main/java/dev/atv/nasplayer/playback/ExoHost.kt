@@ -111,6 +111,7 @@ fun ExoHost(
         val listener = object : Player.Listener {
             override fun onPlaybackStateChanged(state: Int) {
                 if (state == Player.STATE_READY) everReady = true
+                if (state == Player.STATE_BUFFERING && everReady) recorder.rebuffers++
                 if (state == Player.STATE_ENDED && !handedOff) {
                     handedOff = true
                     if (player.duration > 0) onProgress(player.duration, player.duration)

@@ -46,13 +46,16 @@ data class PlaybackLogEntry(
     val outcome: Outcome,
     val reason: String?,
     val tracks: List<TrackInfo>,
+    /** Times playback stalled to rebuffer after it had started (network or decoder too slow). */
+    val rebuffers: Int = 0,
 ) {
-    val problem: Boolean get() = outcome != Outcome.PLAYED || tracks.any { !it.supported }
+    val problem: Boolean get() = outcome != Outcome.PLAYED || tracks.any { !it.supported } || rebuffers > 0
 
     fun toJson(): JSONObject = JSONObject()
         .put("at", at).put("server", serverName).put("path", path).put("container", container)
         .put("engine", engine.name).put("outcome", outcome.name).put("reason", reason ?: JSONObject.NULL)
         .put("tracks", JSONArray().apply { tracks.forEach { put(it.toJson()) } })
+        .put("rebuffers", rebuffers)
 
     companion object {
         fun from(o: JSONObject): PlaybackLogEntry {
@@ -62,6 +65,7 @@ data class PlaybackLogEntry(
                 Engine.valueOf(o.getString("engine")), Outcome.valueOf(o.getString("outcome")),
                 if (o.isNull("reason")) null else o.optString("reason"),
                 (0 until arr.length()).map { TrackInfo.from(arr.getJSONObject(it)) },
+                o.optInt("rebuffers", 0),
             )
         }
     }
@@ -113,7 +117,11 @@ object PlaybackLog {
         entries.filter { it.problem }
             .flatMap { e ->
                 val bad = e.tracks.filter { !it.supported }.map { "${it.type}: ${it.codec}" }
-                bad.ifEmpty { listOf("${e.container} (${e.engine} ${e.outcome.name.lowercase()}: ${e.reason ?: "unknown"})") }
+                when {
+                    bad.isNotEmpty() -> bad
+                    e.outcome == Outcome.PLAYED && e.rebuffers > 0 -> listOf("stuttering (rebuffered) — ${e.container}")
+                    else -> listOf("${e.container} (${e.engine} ${e.outcome.name.lowercase()}: ${e.reason ?: "unknown"})")
+                }
             }
             .groupingBy { it }.eachCount().toList().sortedByDescending { it.second }
 }
@@ -128,6 +136,7 @@ class PlaybackRecorder(
     // ExoPlayer reports decoder initialisation and input format in either order; join them by type.
     private val decoders = HashMap<String, String>()
     var container: String = path.substringAfterLast('.', "").lowercase()
+    var rebuffers = 0
     private var written = false
 
     fun track(key: String, info: TrackInfo) {
@@ -151,7 +160,7 @@ class PlaybackRecorder(
             }
         }
         PlaybackLog.record(
-            PlaybackLogEntry(System.currentTimeMillis(), serverName, path, container, engine, outcome, reason, merged)
+            PlaybackLogEntry(System.currentTimeMillis(), serverName, path, container, engine, outcome, reason, merged, rebuffers)
         )
     }
 }

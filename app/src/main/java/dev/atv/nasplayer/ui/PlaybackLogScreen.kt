@@ -88,7 +88,11 @@ fun PlaybackLogScreen() {
 @Composable
 private fun LogRow(e: PlaybackLogEntry) {
     val status = when (e.outcome) {
-        Outcome.PLAYED -> if (e.tracks.any { !it.supported }) "played, some tracks unsupported" else "played"
+        Outcome.PLAYED -> when {
+            e.tracks.any { !it.supported } -> "played, some tracks unsupported"
+            e.rebuffers > 0 -> "played, rebuffered ${e.rebuffers}×"
+            else -> "played"
+        }
         Outcome.FELL_BACK -> "handed to VLC"
         Outcome.FAILED -> "failed"
     }

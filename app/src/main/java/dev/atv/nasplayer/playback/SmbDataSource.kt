@@ -39,6 +39,8 @@ class SmbDataSource : BaseDataSource(/* isNetwork = */ true) {
     private var bufferPos = 0
     private var bufferLen = 0
     private var opened = false
+    private var openedAt = 0L
+    private var bytesRead = 0L
 
     override fun open(dataSpec: DataSpec): Long {
         uri = dataSpec.uri
@@ -72,6 +74,8 @@ class SmbDataSource : BaseDataSource(/* isNetwork = */ true) {
         val maxRead = f.diskShare.treeConnect.session.connection.negotiatedProtocol.maxReadSize
         chunkSize = maxRead.coerceIn(64 * 1024, DEFAULT_CHUNK)
         opened = true
+        openedAt = android.os.SystemClock.elapsedRealtime()
+        bytesRead = 0
         transferStarted(dataSpec)
         return bytesRemaining
     }
@@ -94,6 +98,7 @@ class SmbDataSource : BaseDataSource(/* isNetwork = */ true) {
         System.arraycopy(buffer, bufferPos, target, offset, n)
         bufferPos += n
         bytesRemaining -= n
+        bytesRead += n
         bytesTransferred(n)
         return n
     }
@@ -148,6 +153,10 @@ class SmbDataSource : BaseDataSource(/* isNetwork = */ true) {
     override fun getUri(): Uri? = uri
 
     override fun close() {
+        if (opened && bytesRead > 4_000_000) {
+            val ms = (android.os.SystemClock.elapsedRealtime() - openedAt).coerceAtLeast(1)
+            android.util.Log.i("NasSmb", "read ${bytesRead / 1_000_000} MB in $ms ms = ${bytesRead * 8 / ms / 1000} Mbit/s (chunk=${chunkSize / 1024} KiB x$READ_AHEAD)")
+        }
         uri = null
         try {
             drain()
