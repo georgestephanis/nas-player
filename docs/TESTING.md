@@ -59,4 +59,6 @@ adb exec-out screencap -p > shot.png
 
 ## Screenshots
 
-`docs/screenshots/` was captured on a Google TV Streamer at 1920×1080 against a demo library of generated, original artwork and media, then resized to 1280×720 and stripped of metadata. Never capture screenshots against a real library: file names and artwork end up in a public repo.
+`docs/screenshots/` was captured at 1920×1080 against a demo library of generated, original artwork and media, then resized to 1280×720 and stripped of metadata. Some shots come from a Google TV Streamer and some from the emulator. Never capture screenshots against a real library: file names and artwork end up in a public repo.
+
+The home screen lists servers found on the network, and the emulator sees your real ones. Before capturing it, run `adb shell cmd connectivity airplane-mode enable`, and check the image before committing it.
