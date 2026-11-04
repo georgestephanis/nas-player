@@ -27,8 +27,8 @@ android {
     }
 
     // One APK per ABI keeps each download small (libVLC + FFmpeg are mostly native code).
-    // armeabi-v7a: Chromecast with Google TV (32-bit userspace) and older boxes.
-    // arm64-v8a:   Google TV Streamer, Shield, most current TVs.  x86_64: emulator.
+    // armeabi-v7a: Google TV Streamer, Chromecast with Google TV (32-bit userspace) and older boxes.
+    // arm64-v8a:   Shield, most current TVs.  x86_64: emulator.
     splits {
         abi {
             isEnable = true
