@@ -19,7 +19,7 @@ data class PlaybackRequest(
     }
 
     companion object {
-        // ponytail: held in memory because a big folder's names don't fit in Intent extras (Binder's ~1 MB limit).
+        // Held in memory because a big folder's names don't fit in Intent extras (Binder's ~1 MB limit).
         // If the process dies while the player is in the background, the player closes back to the home screen.
         @Volatile private var current: PlaybackRequest? = null
 
