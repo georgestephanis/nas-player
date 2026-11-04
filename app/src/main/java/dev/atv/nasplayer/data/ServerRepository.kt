@@ -2,6 +2,7 @@ package dev.atv.nasplayer.data
 
 import android.content.Context
 import android.content.SharedPreferences
+import android.util.Log
 import dev.atv.nasplayer.source.UsbDrives
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -15,6 +16,10 @@ import kotlinx.coroutines.sync.withLock
 import org.json.JSONArray
 import org.json.JSONObject
 
+/** What to store for [password]: a blank one keeps [unread], the stored value that couldn't be decrypted. */
+internal fun storedPassword(password: String, unread: String?, encrypt: (String) -> String): String =
+    if (password.isEmpty() && unread != null) unread else encrypt(password)
+
 object ServerRepository {
     private const val KEY = "servers"
     private lateinit var prefs: SharedPreferences
@@ -24,6 +29,8 @@ object ServerRepository {
     /** Disk + Keystore work runs here, never on the main thread (keystore calls can block for seconds). */
     private val io = CoroutineScope(SupervisorJob() + Dispatchers.IO.limitedParallelism(1))
     private val writeLock = Mutex()
+    /** Stored passwords that couldn't be decrypted this run, by server id, so a write can't erase them. Only touched on [io]. */
+    private val unreadPasswords = mutableMapOf<String, String>()
     private val _loaded = MutableStateFlow(false)
     val loaded: StateFlow<Boolean> = _loaded.asStateFlow()
 
@@ -56,6 +63,7 @@ object ServerRepository {
     }
 
     private fun write(list: List<ServerConfig>) {
+        unreadPasswords.keys.retainAll(list.map { it.id }.toSet())
         val arr = JSONArray()
         list.forEach { s ->
             arr.put(JSONObject().apply {
@@ -66,10 +74,11 @@ object ServerRepository {
                 s.port?.let { put("port", it) }
                 put("path", s.path)
                 put("username", s.username)
-                put("password", SecretBox.encrypt(s.password))
+                put("password", storedPassword(s.password, unreadPasswords[s.id], SecretBox::encrypt))
                 put("domain", s.domain)
                 put("allowInsecureTls", s.allowInsecureTls)
             })
+            if (s.password.isNotEmpty()) unreadPasswords.remove(s.id)
         }
         prefs.edit().putString(KEY, arr.toString()).commit()
     }
@@ -80,20 +89,25 @@ object ServerRepository {
             val arr = JSONArray(raw)
             (0 until arr.length()).map { i ->
                 val o = arr.getJSONObject(i)
+                val id = o.getString("id")
+                val stored = o.optString("password")
                 ServerConfig(
-                    id = o.getString("id"),
+                    id = id,
                     name = o.getString("name"),
                     type = ServerType.valueOf(o.getString("type")),
                     host = o.getString("host"),
                     port = if (o.has("port")) o.getInt("port") else null,
                     path = o.optString("path"),
                     username = o.optString("username"),
-                    password = SecretBox.decrypt(o.optString("password")),
+                    password = SecretBox.decrypt(stored) ?: run { unreadPasswords[id] = stored; "" },
                     domain = o.optString("domain"),
                     allowInsecureTls = o.optBoolean("allowInsecureTls"),
                 )
             }
         } catch (e: Exception) {
+            // The next save replaces the list, so keep a copy. It can only be recovered over adb; add a restore if this ever happens.
+            Log.e("ServerRepository", "Saved sources are unreadable", e)
+            prefs.edit().putString("$KEY.unreadable", raw).commit()
             emptyList()
         }
     }

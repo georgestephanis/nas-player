@@ -7,6 +7,7 @@ import android.util.Log
 import java.security.KeyStore
 import java.util.concurrent.Executors
 import java.util.concurrent.TimeUnit
+import java.util.concurrent.TimeoutException
 import javax.crypto.Cipher
 import javax.crypto.KeyGenerator
 import javax.crypto.SecretKey
@@ -36,20 +37,25 @@ object SecretBox {
     @Volatile private var cached: SecretKey? = null
     @Volatile private var unavailableUntil = 0L
 
-    /** Null when the keystore is unavailable right now. */
-    private fun key(): SecretKey? {
-        cached?.let { return it }
+    /** Runs [block] on the keystore thread. Null if it failed, or didn't answer in time. */
+    private fun <T> onKeystore(block: () -> T): T? {
         if (System.currentTimeMillis() < unavailableUntil) return null
+        val task = keystoreThread.submit<T> { block() }
         return try {
-            keystoreThread.submit<SecretKey> { loadOrCreate() }.get(TIMEOUT_MS, TimeUnit.MILLISECONDS)
-                .also { cached = it }
-        } catch (e: Exception) {
+            task.get(TIMEOUT_MS, TimeUnit.MILLISECONDS)
+        } catch (e: TimeoutException) {
             // Don't stack up more blocked calls behind a hung keystore for a while.
+            task.cancel(true)
             unavailableUntil = System.currentTimeMillis() + 60_000
-            Log.w(TAG, "Android keystore unavailable (${e.javaClass.simpleName}); storing credentials unencrypted in app storage")
+            Log.w(TAG, "Android keystore not responding", e)
+            null
+        } catch (e: Exception) {
+            Log.w(TAG, "Android keystore call failed", e)
             null
         }
     }
+
+    private fun key(): SecretKey? = cached ?: onKeystore { loadOrCreate() }?.also { cached = it }
 
     private fun loadOrCreate(): SecretKey {
         val ks = KeyStore.getInstance("AndroidKeyStore").apply { load(null) }
@@ -67,27 +73,32 @@ object SecretBox {
     /** Call off the main thread: may block for up to [TIMEOUT_MS]. */
     fun encrypt(plain: String): String {
         if (plain.isEmpty()) return ""
-        val key = key() ?: return PLAIN + Base64.encodeToString(plain.toByteArray(Charsets.UTF_8), Base64.NO_WRAP)
-        val cipher = Cipher.getInstance(TRANSFORM).apply { init(Cipher.ENCRYPT_MODE, key) }
-        val out = cipher.iv + cipher.doFinal(plain.toByteArray(Charsets.UTF_8))
+        val out = key()?.let { key ->
+            onKeystore {
+                val cipher = Cipher.getInstance(TRANSFORM).apply { init(Cipher.ENCRYPT_MODE, key) }
+                cipher.iv + cipher.doFinal(plain.toByteArray(Charsets.UTF_8))
+            }
+        } ?: return PLAIN + Base64.encodeToString(plain.toByteArray(Charsets.UTF_8), Base64.NO_WRAP)
         return Base64.encodeToString(out, Base64.NO_WRAP)
     }
 
-    /** Call off the main thread: may block for up to [TIMEOUT_MS]. */
-    fun decrypt(encoded: String): String {
+    /** Call off the main thread: may block for up to [TIMEOUT_MS]. Null means there is a password but it can't be read. */
+    fun decrypt(encoded: String): String? {
         if (encoded.isEmpty()) return ""
-        if (encoded.startsWith(PLAIN)) {
-            return String(Base64.decode(encoded.removePrefix(PLAIN), Base64.NO_WRAP), Charsets.UTF_8)
-        }
         return try {
-            val key = key() ?: return ""
-            val bytes = Base64.decode(encoded, Base64.NO_WRAP)
-            val cipher = Cipher.getInstance(TRANSFORM).apply {
-                init(Cipher.DECRYPT_MODE, key, GCMParameterSpec(128, bytes, 0, IV_LEN))
+            if (encoded.startsWith(PLAIN)) {
+                return String(Base64.decode(encoded.removePrefix(PLAIN), Base64.NO_WRAP), Charsets.UTF_8)
             }
-            String(cipher.doFinal(bytes, IV_LEN, bytes.size - IV_LEN), Charsets.UTF_8)
+            val key = key() ?: return null
+            val bytes = Base64.decode(encoded, Base64.NO_WRAP)
+            onKeystore {
+                val cipher = Cipher.getInstance(TRANSFORM).apply {
+                    init(Cipher.DECRYPT_MODE, key, GCMParameterSpec(128, bytes, 0, IV_LEN))
+                }
+                String(cipher.doFinal(bytes, IV_LEN, bytes.size - IV_LEN), Charsets.UTF_8)
+            }
         } catch (e: Exception) {
-            ""
+            null
         }
     }
 }
