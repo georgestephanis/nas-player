@@ -69,8 +69,9 @@ private class DavRemoteFile(private val server: ServerConfig, path: String) : Re
         val req = Request.Builder().url(url).header("Range", "bytes=$position-$end").build()
         client.newCall(req).execute().use { resp ->
             if (!resp.isSuccessful) throw IOException("HTTP ${resp.code}")
-            val stream = resp.body?.byteStream() ?: return -1
-            if (resp.code == 200 && position > 0) stream.skip(position) // server ignored Range
+            val source = resp.body?.source() ?: throw IOException("HTTP ${resp.code} with no response body")
+            if (resp.code == 200 && position > 0) source.skip(position) // server ignored Range
+            val stream = source.inputStream()
             var total = 0
             val want = (end - position + 1).toInt()
             while (total < want) {
