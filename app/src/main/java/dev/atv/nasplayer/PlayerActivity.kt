@@ -18,6 +18,7 @@ import androidx.compose.foundation.layout.widthIn
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.key
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -131,7 +132,9 @@ fun PlayerScreen(server: ServerConfig, request: PlaybackRequest, onExit: () -> U
             val onProgress: (Long, Long) -> Unit = { pos, dur ->
                 ResumeStore.save(server.id, request.folder, request.items[s.index], pos, dur)
             }
-            when {
+            // A session is one mounted player: without the key, the next file reuses the old AndroidView,
+            // which stays bound to the released player and never gets the new one.
+            key(s) { when {
                 isImage(s.index) -> dev.atv.nasplayer.playback.ImageHost(
                     server = server,
                     request = request,
@@ -172,7 +175,7 @@ fun PlayerScreen(server: ServerConfig, request: PlaybackRequest, onExit: () -> U
                     onError = { msg -> error = s to msg },
                     onExit = onExit,
                 )
-            }
+            } }
         }
 
         resumePrompt?.let { (i, entry) ->

@@ -5,7 +5,10 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.viewinterop.AndroidView
@@ -41,6 +44,8 @@ fun ExoHost(
     val player = remember(session) { ExoFactory.create(context) }
     val viewRef = remember(session) { arrayOfNulls<PlayerView>(1) }
     val hasNext = session.index + 1 < request.items.size
+    val recorder = remember(session) { PlaybackRecorder(server.name, joinPath(request.folder, request.items[session.index]), Engine.EXO) }
+    var handedOff by remember(session) { mutableStateOf(false) }
 
     // Expose our folder playlist through the standard next/previous controls.
     val controlled = remember(player) {
@@ -82,9 +87,7 @@ fun ExoHost(
             .build()
 
         var tracksChecked = false
-        var handedOff = false
         var everReady = false
-        val recorder = PlaybackRecorder(server.name, joinPath(request.folder, name), Engine.EXO)
         val analytics = object : androidx.media3.exoplayer.analytics.AnalyticsListener {
             override fun onVideoInputFormatChanged(
                 eventTime: androidx.media3.exoplayer.analytics.AnalyticsListener.EventTime,
@@ -172,6 +175,20 @@ fun ExoHost(
         while (true) {
             delay(5_000)
             if (player.isPlaying && player.duration > 0) onProgress(player.currentPosition, player.duration)
+        }
+    }
+
+    // ExoPlayer reports no error when a stream's video stops decoding: the audio just carries on over a
+    // frozen picture. Hand those to VLC.
+    LaunchedEffect(player) {
+        val stall = VideoStallCheck()
+        while (!handedOff) {
+            delay(1_000)
+            if (stall.tick(player.isPlaying, player.videoDecoderCounters?.renderedOutputBufferCount)) {
+                handedOff = true
+                recorder.finish(Outcome.FELL_BACK, "video stopped rendering")
+                onFallback(player.currentPosition.coerceAtLeast(session.startMs), "video stopped")
+            }
         }
     }
 

@@ -26,10 +26,11 @@ object ExoFactory {
             // Seeking in files without an index (some MP3/ADTS/AVI).
             .setConstantBitrateSeekingEnabled(true)
             .setConstantBitrateSeekingAlwaysEnabled(true)
-            // Broadcast / DVR transport streams: H.264 without IDR frames or AUD delimiters, Blu-ray DTS.
+            // Broadcast / DVR transport streams: H.264 without IDR frames, Blu-ray DTS.
+            // Not FLAG_DETECT_ACCESS_UNITS: with it, ordinary H.264 .ts stops showing video after ~10 frames
+            // while the audio carries on.
             .setTsExtractorFlags(
                 DefaultTsPayloadReaderFactory.FLAG_ALLOW_NON_IDR_KEYFRAMES or
-                    DefaultTsPayloadReaderFactory.FLAG_DETECT_ACCESS_UNITS or
                     DefaultTsPayloadReaderFactory.FLAG_ENABLE_HDMV_DTS_AUDIO_STREAMS
             )
             .setTsExtractorTimestampSearchBytes(1500 * TsExtractor.TS_PACKET_SIZE)

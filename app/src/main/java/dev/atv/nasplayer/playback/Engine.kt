@@ -59,6 +59,18 @@ object EngineChooser {
     }
 }
 
+/** True once video has been playing for [limit] ticks with no new frame on screen. Audio-only: pass null. */
+class VideoStallCheck(private val limit: Int = 5) {
+    private var last: Int? = null
+    private var stuck = 0
+
+    fun tick(playing: Boolean, rendered: Int?): Boolean {
+        stuck = if (!playing || rendered == null || rendered != last) 0 else stuck + 1
+        last = rendered
+        return stuck >= limit
+    }
+}
+
 enum class EnginePreference(val label: String) {
     AUTO("Automatic (ExoPlayer, VLC fallback)"),
     EXO("Always ExoPlayer"),
