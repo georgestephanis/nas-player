@@ -294,7 +294,7 @@ private fun EntryRow(
                 }
             }
         },
-        trailingContent = if (entry.isDirectory || (entry.size < 0 && resume?.watched != true)) null else {
+        trailingContent = if (entry.isDirectory || (entry.size < 0 && duration == null && resume?.watched != true)) null else {
             {
                 Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                     if (resume?.watched == true) Icon(Icons.Default.CheckCircle, contentDescription = "Watched", modifier = Modifier.size(16.dp))

@@ -55,7 +55,7 @@ object AudioTagReader {
             withContext(Dispatchers.IO) {
                 val file = File(File(context.cacheDir, "thumbs").apply { mkdirs() }, ThumbnailFetcher.sha1(key) + ".tags")
                 val tags = runCatching { AudioTags.from(JSONObject(file.readText())) }.getOrNull()
-                    ?: withTimeoutOrNull(20_000) { fetch(serverId, entry) }?.also { file.writeText(it.toJson().toString()) }
+                    ?: withTimeoutOrNull(20_000) { fetch(serverId, entry) }?.also { t -> runCatching { file.writeText(t.toJson().toString()) } }
                 (tags ?: AudioTags()).also { memory.put(key, it) }
             }
         }
