@@ -50,10 +50,18 @@ import dev.atv.nasplayer.ui.NasTheme
 import dev.atv.nasplayer.ui.formatDuration
 
 class PlayerActivity : ComponentActivity() {
+    private var request: PlaybackRequest? = null
+
+    override fun onDestroy() {
+        if (isFinishing) PlaybackRequest.release(request)
+        super.onDestroy()
+    }
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         window.addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
         val request = PlaybackRequest.from()
+        this.request = request
         val server = request?.let { ServerRepository.get(it.serverId) }
         if (request == null || server == null || request.items.isEmpty()) {
             finish()

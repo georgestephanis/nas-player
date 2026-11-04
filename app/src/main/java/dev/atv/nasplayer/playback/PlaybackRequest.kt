@@ -24,5 +24,10 @@ data class PlaybackRequest(
         @Volatile private var current: PlaybackRequest? = null
 
         fun from(): PlaybackRequest? = current
+
+        /** Only clears [request] itself, in case a newer one has already replaced it. */
+        fun release(request: PlaybackRequest?) {
+            if (current === request) current = null
+        }
     }
 }
