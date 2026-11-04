@@ -13,26 +13,16 @@ data class PlaybackRequest(
     val index: Int,
     val forcedEngine: Engine? = null,
 ) {
-    fun intent(context: Context): Intent = Intent(context, PlayerActivity::class.java)
-        .putExtra("serverId", serverId)
-        .putExtra("folder", folder)
-        .putStringArrayListExtra("items", ArrayList(items))
-        .putStringArrayListExtra("siblings", ArrayList(siblings))
-        .putExtra("index", index)
-        .putExtra("engine", forcedEngine?.name)
+    fun intent(context: Context): Intent {
+        current = this
+        return Intent(context, PlayerActivity::class.java)
+    }
 
     companion object {
-        fun from(intent: Intent): PlaybackRequest? {
-            val serverId = intent.getStringExtra("serverId") ?: return null
-            val items = intent.getStringArrayListExtra("items") ?: return null
-            return PlaybackRequest(
-                serverId = serverId,
-                folder = intent.getStringExtra("folder") ?: "/",
-                items = items,
-                siblings = intent.getStringArrayListExtra("siblings") ?: arrayListOf(),
-                index = intent.getIntExtra("index", 0).coerceIn(0, (items.size - 1).coerceAtLeast(0)),
-                forcedEngine = intent.getStringExtra("engine")?.let { runCatching { Engine.valueOf(it) }.getOrNull() },
-            )
-        }
+        // ponytail: held in memory because a big folder's names don't fit in Intent extras (Binder's ~1 MB limit).
+        // If the process dies while the player is in the background, the player closes back to the home screen.
+        @Volatile private var current: PlaybackRequest? = null
+
+        fun from(): PlaybackRequest? = current
     }
 }
