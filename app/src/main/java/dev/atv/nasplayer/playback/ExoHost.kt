@@ -247,7 +247,7 @@ private fun recordTracks(recorder: PlaybackRecorder, tracks: Tracks) {
 private fun describe(e: PlaybackException): String = when (e.errorCode) {
     PlaybackException.ERROR_CODE_IO_NETWORK_CONNECTION_FAILED -> "Couldn't reach the server. Check that the NAS is awake and on the network."
     PlaybackException.ERROR_CODE_IO_NETWORK_CONNECTION_TIMEOUT -> "The server stopped responding."
-    PlaybackException.ERROR_CODE_IO_FILE_NOT_FOUND -> "The file no longer exists on the server."
+    PlaybackException.ERROR_CODE_IO_FILE_NOT_FOUND -> "The file is no longer there. It may have been moved, or its drive removed."
     PlaybackException.ERROR_CODE_IO_NO_PERMISSION -> "This account doesn't have permission to read the file."
     PlaybackException.ERROR_CODE_IO_BAD_HTTP_STATUS -> "The server refused the request (${e.cause?.message ?: "HTTP error"})."
     else -> (e.cause?.message ?: e.message ?: e.errorCodeName)
