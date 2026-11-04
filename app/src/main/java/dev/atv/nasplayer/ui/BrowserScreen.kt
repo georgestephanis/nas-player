@@ -59,6 +59,7 @@ import androidx.tv.material3.Surface
 import androidx.tv.material3.Text
 import dev.atv.nasplayer.data.ResumeStore
 import dev.atv.nasplayer.data.ServerRepository
+import dev.atv.nasplayer.data.ServerType
 import dev.atv.nasplayer.data.parentPath
 import dev.atv.nasplayer.playback.Engine
 import dev.atv.nasplayer.images.AudioTagReader
@@ -82,7 +83,7 @@ fun BrowserScreen(
 ) {
     val context = LocalContext.current
     val servers by ServerRepository.servers.collectAsState()
-    val server = servers.firstOrNull { it.id == serverId }
+    val server = remember(servers, serverId) { ServerRepository.get(serverId) }
     if (server == null) {
         LaunchedEffect(Unit) { onLeave() }
         return
@@ -157,7 +158,7 @@ fun BrowserScreen(
                     Spacer(Modifier.height(24.dp))
                     Row(horizontalArrangement = Arrangement.spacedBy(16.dp)) {
                         Button(onClick = { reload++ }, modifier = Modifier.focusRequester(retryFocus)) { Text("Retry") }
-                        OutlinedButton(onClick = onEditServer) { Text("Edit source") }
+                        if (server.type != ServerType.USB) OutlinedButton(onClick = onEditServer) { Text("Edit source") }
                     }
                 }
                 LaunchedEffect(s) { delay(50); runCatching { retryFocus.requestFocus() } }

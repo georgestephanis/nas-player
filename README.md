@@ -27,6 +27,7 @@ An Android TV / Google TV app for watching video, listening to music and viewing
 - **SMB 2/3 and WebDAV.** Leave the share blank to choose from all shares on the server, or pin a share or subfolder such as `Media/Movies`.
 - SMB servers that advertise over **mDNS/Bonjour** (TrueNAS, Synology, QNAP, macOS, Samba with Avahi) appear under "Found on your network". Select one to add it.
 - **Test connection** before saving. Hold OK on a source to edit or remove it.
+- **USB drives** appear under "Local drives" while plugged in. The first time, the app opens Android's *All files access* screen: turn on NAS Player there and go back. Google TV has no document picker to use instead. The app only reads from drives, though Android's wording for this permission also covers changing and deleting files.
 
 ### Browsing
 - **Thumbnails** for every row, generated once and cached on the device:
@@ -128,10 +129,6 @@ More on the code layout and device testing: [docs/ARCHITECTURE.md](docs/ARCHITEC
 - **WebDAV:** enter the full base URL (e.g. `http://nas.local:8080/media`). Self-signed HTTPS can be allowed per source.
 - **Artwork:** put `poster.jpg` (or `folder.jpg` / `cover.jpg`) in movie, show and album folders, the same layout Plex, Kodi and Jellyfin use, and it becomes the thumbnail.
 - **Credentials** are kept in app-private storage (backups disabled) and encrypted with the Android Keystore. Some TV firmware has a keystore service that hangs; if it doesn't answer within two seconds the password is stored unencrypted in that same private storage and encrypted on a later save once the keystore responds.
-
-## Roadmap
-
-- USB drives plugged into the TV as sources ([#1](https://github.com/georgestephanis/atv-media-player/issues/1)).
 
 ## License
 

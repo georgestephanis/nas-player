@@ -7,7 +7,9 @@ import dev.atv.nasplayer.data.ServerConfig
 import dev.atv.nasplayer.data.ServerType
 import okhttp3.Request
 import java.io.Closeable
+import java.io.File
 import java.io.IOException
+import java.io.RandomAccessFile
 
 /** Random-access read handle on a remote file (used for thumbnails, cover art and images). */
 interface RemoteFile : Closeable {
@@ -32,6 +34,7 @@ interface RemoteFile : Closeable {
             val raw = when (server.type) {
                 ServerType.SMB -> SmbRemoteFile(server, path)
                 ServerType.WEBDAV -> DavRemoteFile(server, path)
+                ServerType.USB -> UsbRemoteFile(File(server.host + path))
             }
             return BlockCachedFile(raw)
         }
@@ -79,6 +82,16 @@ private class DavRemoteFile(private val server: ServerConfig, path: String) : Re
         }
     }
     override fun close() {}
+}
+
+private class UsbRemoteFile(file: File) : RemoteFile {
+    private val raf = RandomAccessFile(file, "r")
+    override val size: Long = raf.length()
+    override fun readAt(position: Long, buf: ByteArray, off: Int, len: Int): Int {
+        raf.seek(position)
+        return raf.read(buf, off, len)
+    }
+    override fun close() = raf.close()
 }
 
 /**

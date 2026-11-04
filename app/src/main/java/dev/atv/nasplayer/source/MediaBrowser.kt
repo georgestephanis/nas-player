@@ -19,6 +19,7 @@ interface MediaBrowser {
         fun forServer(server: ServerConfig): MediaBrowser = when (server.type) {
             ServerType.SMB -> SmbBrowser(server)
             ServerType.WEBDAV -> WebDavBrowser(server)
+            ServerType.USB -> UsbBrowser(server)
         }
     }
 }

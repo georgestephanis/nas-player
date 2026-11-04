@@ -2,6 +2,7 @@ package dev.atv.nasplayer.data
 
 import android.content.Context
 import android.content.SharedPreferences
+import dev.atv.nasplayer.source.UsbDrives
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
@@ -34,7 +35,7 @@ object ServerRepository {
         }
     }
 
-    fun get(id: String): ServerConfig? = _servers.value.firstOrNull { it.id == id }
+    fun get(id: String): ServerConfig? = _servers.value.firstOrNull { it.id == id } ?: UsbDrives.get(id)
 
     fun save(server: ServerConfig) {
         val list = _servers.value.toMutableList()
