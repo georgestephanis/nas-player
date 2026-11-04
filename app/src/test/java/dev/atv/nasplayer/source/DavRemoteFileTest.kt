@@ -10,7 +10,7 @@ import org.junit.Test
 import java.net.InetSocketAddress
 
 class DavRemoteFileTest {
-    /** A server that ignores Range and always sends the whole file, a few bytes at a time. */
+    /** A server that ignores Range and always sends the whole file, in small chunks. */
     @Test
     fun readsTheRightBytesWhenServerIgnoresRange() {
         val data = ByteArray(1_000_000) { (it % 251).toByte() }
