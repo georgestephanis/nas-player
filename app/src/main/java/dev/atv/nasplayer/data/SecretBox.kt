@@ -45,10 +45,10 @@ object SecretBox {
         } catch (e: TimeoutException) {
             // Don't stack up more blocked calls behind a hung keystore for a while.
             unavailableUntil = System.currentTimeMillis() + 60_000
-            Log.w(TAG, "Android keystore not responding")
+            Log.w(TAG, "Android keystore not responding", e)
             null
         } catch (e: Exception) {
-            Log.w(TAG, "Android keystore call failed (${e.cause?.javaClass?.simpleName ?: e.javaClass.simpleName})")
+            Log.w(TAG, "Android keystore call failed", e)
             null
         }
     }

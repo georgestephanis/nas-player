@@ -63,6 +63,7 @@ object ServerRepository {
     }
 
     private fun write(list: List<ServerConfig>) {
+        unreadPasswords.keys.retainAll(list.map { it.id }.toSet())
         val arr = JSONArray()
         list.forEach { s ->
             arr.put(JSONObject().apply {
