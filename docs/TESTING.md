@@ -1,6 +1,6 @@
 # Testing
 
-There are no automated tests yet. Changes are verified on a real device, because the emulator hid every serious bug so far (keystore hangs, slow SMB connects, VLC rendering black).
+Pure logic has a few JVM tests (`./gradlew testDebugUnitTest`). Everything else is verified on a real device, because the emulator hid every serious bug so far (keystore hangs, slow SMB connects, VLC rendering black).
 
 ## Test share
 

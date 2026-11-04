@@ -103,23 +103,6 @@ class ThumbnailFetcher(private val data: Thumb, private val context: Context) : 
     private fun embeddedArt(file: RemoteFile): ByteArray? =
         withRetriever(file) { mmr -> mmr.embeddedPicture?.let { decodeScaled(it) } }
 
-    private fun <T> withRetriever(file: RemoteFile, block: (MediaMetadataRetriever) -> T?): T? {
-        val mmr = MediaMetadataRetriever()
-        return try {
-            mmr.setDataSource(object : MediaDataSource() {
-                override fun readAt(position: Long, buffer: ByteArray, offset: Int, size: Int): Int =
-                    try { file.readAt(position, buffer, offset, size) } catch (e: IOException) { -1 }
-                override fun getSize(): Long = file.size
-                override fun close() {}
-            })
-            block(mmr)
-        } catch (e: Exception) {
-            null
-        } finally {
-            runCatching { mmr.release() }
-        }
-    }
-
     private fun decodeScaled(bytes: ByteArray): ByteArray? {
         val bounds = BitmapFactory.Options().apply { inJustDecodeBounds = true }
         BitmapFactory.decodeByteArray(bytes, 0, bytes.size, bounds)
@@ -150,11 +133,28 @@ class ThumbnailFetcher(private val data: Thumb, private val context: Context) : 
         private const val TAG = "NasThumb"
         private const val MAX = 480
         /** At most two NAS fetches/decodes at once: keeps scrolling smooth and leaves bandwidth for playback. */
-        private val gate = Semaphore(2)
+        internal val gate = Semaphore(2)
 
         fun sha1(s: String): String =
             MessageDigest.getInstance("SHA-1").digest(s.toByteArray()).joinToString("") { "%02x".format(it) }
 
         fun clearCache(context: Context) = File(context.cacheDir, "thumbs").deleteRecursively()
+    }
+}
+
+internal fun <T> withRetriever(file: RemoteFile, block: (MediaMetadataRetriever) -> T?): T? {
+    val mmr = MediaMetadataRetriever()
+    return try {
+        mmr.setDataSource(object : MediaDataSource() {
+            override fun readAt(position: Long, buffer: ByteArray, offset: Int, size: Int): Int =
+                try { file.readAt(position, buffer, offset, size) } catch (e: IOException) { -1 }
+            override fun getSize(): Long = file.size
+            override fun close() {}
+        })
+        block(mmr)
+    } catch (e: Exception) {
+        null
+    } finally {
+        runCatching { mmr.release() }
     }
 }
