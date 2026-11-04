@@ -1,22 +1,23 @@
 package dev.atv.nasplayer.playback
 
-import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableLongStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.viewinterop.AndroidView
-import androidx.media3.common.ForwardingPlayer
+import androidx.media3.common.C
 import androidx.media3.common.MediaItem
 import androidx.media3.common.MediaMetadata
 import androidx.media3.common.PlaybackException
 import androidx.media3.common.Player
+import androidx.media3.common.TrackSelectionOverride
 import androidx.media3.common.Tracks
 import androidx.media3.common.util.UnstableApi
 import androidx.media3.ui.PlayerView
@@ -43,32 +44,13 @@ fun ExoHost(
     val context = LocalContext.current
     val player = remember(session) { ExoFactory.create(context) }
     val viewRef = remember(session) { arrayOfNulls<PlayerView>(1) }
-    val hasNext = session.index + 1 < request.items.size
     val recorder = remember(session) { PlaybackRecorder(server.name, joinPath(request.folder, request.items[session.index]), Engine.EXO) }
     var handedOff by remember(session) { mutableStateOf(false) }
 
-    // Expose our folder playlist through the standard next/previous controls.
-    val controlled = remember(player) {
-        object : ForwardingPlayer(player) {
-            private val extra = Player.Commands.Builder()
-                .addAll(Player.COMMAND_SEEK_TO_PREVIOUS, Player.COMMAND_SEEK_TO_PREVIOUS_MEDIA_ITEM)
-                .apply { if (hasNext) addAll(Player.COMMAND_SEEK_TO_NEXT, Player.COMMAND_SEEK_TO_NEXT_MEDIA_ITEM) }
-                .build()
-
-            override fun getAvailableCommands(): Player.Commands =
-                super.getAvailableCommands().buildUpon().addAll(extra).build()
-
-            override fun isCommandAvailable(command: Int): Boolean =
-                extra.contains(command) || super.isCommandAvailable(command)
-
-            override fun seekToNext() = onNext()
-            override fun seekToNextMediaItem() = onNext()
-            override fun seekToPrevious() {
-                if (player.currentPosition > 5_000) player.seekTo(0) else onPrevious()
-            }
-            override fun seekToPreviousMediaItem() = onPrevious()
-        }
-    }
+    var position by remember(session) { mutableLongStateOf(session.startMs) }
+    var duration by remember(session) { mutableLongStateOf(0L) }
+    var playing by remember(session) { mutableStateOf(false) }
+    var buffering by remember(session) { mutableStateOf(true) }
 
     DisposableEffect(player) {
         val browser = MediaBrowser.forServer(server)
@@ -192,9 +174,14 @@ fun ExoHost(
         }
     }
 
-    BackHandler {
-        val v = viewRef[0]
-        if (v != null && v.isControllerFullyVisible) v.hideController() else onExit()
+    LaunchedEffect(player) {
+        while (true) {
+            position = player.currentPosition
+            duration = player.duration.coerceAtLeast(0)
+            buffering = player.playbackState == Player.STATE_BUFFERING
+            playing = player.playWhenReady
+            delay(250)
+        }
     }
 
     // Music: show embedded cover art (ExoPlayer reads it from tags), falling back to folder art.
@@ -209,27 +196,62 @@ fun ExoHost(
         if (img != null) viewRef[0]?.defaultArtwork = android.graphics.drawable.BitmapDrawable(context.resources, (img as coil3.BitmapImage).bitmap)
     }
 
-    AndroidView(
-        modifier = Modifier.fillMaxSize(),
-        factory = { ctx ->
-            PlayerView(ctx).apply {
-                artworkDisplayMode = PlayerView.ARTWORK_DISPLAY_MODE_FIT
-                this.player = controlled
-                useController = true
-                controllerShowTimeoutMs = 4_000
-                setShowSubtitleButton(true)
-                setShowNextButton(true)
-                setShowPreviousButton(true)
-                setShowFastForwardButton(true)
-                setShowRewindButton(true)
-                keepScreenOn = true
-                isFocusable = true
-                isFocusableInTouchMode = true
-                viewRef[0] = this
-                post { requestFocus() }
-            }
+    PlayerControls(
+        title = request.items[session.index].substringBeforeLast('.'),
+        engineLabel = "",
+        positionMs = position,
+        durationMs = duration,
+        playing = playing,
+        buffering = buffering,
+        keepBarVisible = isAudio,
+        hasNext = session.index + 1 < request.items.size,
+        setPlaying = { player.playWhenReady = it; playing = it },
+        seekBy = { delta ->
+            // currentPosition already reflects a pending seek, so quick presses add up.
+            val end = if (player.duration > 0) player.duration - 1_000 else Long.MAX_VALUE
+            player.seekTo((player.currentPosition + delta).coerceIn(0, end))
+            position = player.currentPosition
         },
-    )
+        onNext = onNext,
+        onPrevious = { if (player.currentPosition > 5_000) player.seekTo(0) else onPrevious() },
+        tracks = { exoTrackChoices(player) },
+        onExit = onExit,
+    ) {
+        AndroidView(
+            modifier = Modifier.fillMaxSize(),
+            factory = { ctx ->
+                PlayerView(ctx).apply {
+                    artworkDisplayMode = PlayerView.ARTWORK_DISPLAY_MODE_FIT
+                    this.player = player
+                    useController = false
+                    keepScreenOn = true
+                    viewRef[0] = this
+                }
+            },
+        )
+    }
+}
+
+private fun exoTrackChoices(player: Player): List<TrackChoice> {
+    fun list(type: Int, kind: String) = player.currentTracks.groups.filter { it.type == type }.flatMap { group ->
+        (0 until group.length).filter { group.isTrackSupported(it) }.map { i ->
+            val f = group.getTrackFormat(i)
+            val name = f.label ?: listOfNotNull(f.language?.takeIf { it != "und" }, f.sampleMimeType?.substringAfter('/')).joinToString(" · ")
+            TrackChoice(kind, name, group.isTrackSelected(i)) {
+                player.trackSelectionParameters = player.trackSelectionParameters.buildUpon()
+                    .setTrackTypeDisabled(type, false)
+                    .setOverrideForType(TrackSelectionOverride(group.mediaTrackGroup, i))
+                    .build()
+            }
+        }
+    }
+    val text = list(C.TRACK_TYPE_TEXT, "Subtitles")
+    val off = TrackChoice("Subtitles", "Off", text.none { it.selected }) {
+        player.trackSelectionParameters = player.trackSelectionParameters.buildUpon()
+            .setTrackTypeDisabled(C.TRACK_TYPE_TEXT, true)
+            .build()
+    }
+    return list(C.TRACK_TYPE_AUDIO, "Audio") + if (text.isEmpty()) emptyList() else listOf(off) + text
 }
 
 internal fun describeFormat(f: androidx.media3.common.Format): String = buildList {

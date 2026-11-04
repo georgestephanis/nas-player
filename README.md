@@ -62,11 +62,10 @@ Settings → Playback log records every attempt: the container, each track's cod
 |---|---|---|
 | Lists | OK | Open folder / play |
 | | Hold OK | File menu (engine choice, start over, watched) or edit source |
-| Video & music (ExoPlayer) | OK / ◀ ▶ | Show controls / seek |
-| Video (VLC engine) | OK | Play / pause |
-| | ◀ / ▶ | Back 10 s / forward 30 s |
+| Video & music | ◀ / ▶ | Back 10 s / forward 30 s, with or without the bar showing |
+| | OK | Play / pause |
+| | ▼ | Move onto the bar's buttons (previous, back, play, forward, next, tracks); ◀ ▶ choose, OK selects, ▲ or Back leaves |
 | | ▲ | Audio and subtitle tracks |
-| | ▼ | Show progress |
 | Photos | ◀ / ▶ | Previous / next item in the folder |
 | | OK | Start / stop slideshow |
 | | ▼ | Show filename and position |
