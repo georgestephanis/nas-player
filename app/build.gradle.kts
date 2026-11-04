@@ -91,4 +91,5 @@ dependencies {
     implementation(libs.slf4j.nop)
 
     debugImplementation(libs.compose.ui.tooling)
+    testImplementation(libs.junit)
 }

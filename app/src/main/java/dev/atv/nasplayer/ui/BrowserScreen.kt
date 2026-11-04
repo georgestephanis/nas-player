@@ -34,6 +34,7 @@ import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateListOf
 import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.produceState
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
@@ -51,6 +52,7 @@ import androidx.tv.material3.Button
 import androidx.tv.material3.DenseListItem
 import androidx.tv.material3.Icon
 import androidx.tv.material3.ListItem
+import androidx.tv.material3.LocalContentColor
 import androidx.tv.material3.MaterialTheme
 import androidx.tv.material3.OutlinedButton
 import androidx.tv.material3.Surface
@@ -59,6 +61,7 @@ import dev.atv.nasplayer.data.ResumeStore
 import dev.atv.nasplayer.data.ServerRepository
 import dev.atv.nasplayer.data.parentPath
 import dev.atv.nasplayer.playback.Engine
+import dev.atv.nasplayer.images.AudioTagReader
 import dev.atv.nasplayer.source.MediaBrowser
 import dev.atv.nasplayer.source.MediaKind
 import dev.atv.nasplayer.source.RemoteEntry
@@ -161,6 +164,7 @@ fun BrowserScreen(
             }
             is ListState.Loaded -> {
                 val entries = remember(s, resumeVersion, sortOrder) { visibleEntries(s.all) }
+                val albumFolder = remember(s) { dev.atv.nasplayer.source.isAlbumFolder(s.all) }
                 if (entries.isEmpty()) {
                     Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
                         Text("No media in this folder", style = MaterialTheme.typography.titleMedium)
@@ -175,6 +179,7 @@ fun BrowserScreen(
                             EntryRow(
                                 serverId = server.id,
                                 entry = entry,
+                                showTags = albumFolder && entry.kind == MediaKind.AUDIO,
                                 thumb = if (thumbs) dev.atv.nasplayer.images.Thumb(
                                     server.id, entry.path, entry.kind, entry.size, entry.modifiedMs, artworkFor(entry, s.all),
                                 ) else null,
@@ -232,12 +237,19 @@ fun BrowserScreen(
 private fun EntryRow(
     serverId: String,
     entry: RemoteEntry,
+    showTags: Boolean,
     thumb: dev.atv.nasplayer.images.Thumb?,
     modifier: Modifier,
     onClick: () -> Unit,
     onLongClick: () -> Unit,
 ) {
     val resume = if (entry.isDirectory) null else ResumeStore.get(serverId, entry.path)
+    val context = LocalContext.current
+    val tags by produceState(if (showTags) AudioTagReader.cached(serverId, entry) else null, entry, showTags) {
+        if (showTags) value = AudioTagReader.read(context, serverId, entry)
+    }
+    val tagLine = tags?.let { t -> listOfNotNull(t.artist, t.album, t.year).joinToString(" · ") }.orEmpty()
+    val duration = tags?.durationMs?.takeIf { it > 0 }
     DenseListItem(
         selected = false,
         onClick = onClick,
@@ -260,7 +272,17 @@ private fun EntryRow(
         headlineContent = {
             // The fixed row height leaves less than DenseListItem's padding expects; let two lines overflow into it.
             Column(Modifier.wrapContentHeight(unbounded = true)) {
-                Text(entry.name, style = MaterialTheme.typography.bodyMedium, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                val title = tags?.title?.let { t -> listOfNotNull(tags?.track, t).joinToString("  ") } ?: entry.name
+                Text(title, style = MaterialTheme.typography.bodyMedium, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                if (tagLine.isNotEmpty()) {
+                    Text(
+                        tagLine,
+                        style = MaterialTheme.typography.labelSmall,
+                        color = LocalContentColor.current.copy(alpha = 0.7f),
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis,
+                    )
+                }
                 if (resume != null && !resume.watched && resume.positionMs > 0) {
                     Spacer(Modifier.height(2.dp))
                     LinearProgressIndicator(
@@ -276,7 +298,8 @@ private fun EntryRow(
             {
                 Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                     if (resume?.watched == true) Icon(Icons.Default.CheckCircle, contentDescription = "Watched", modifier = Modifier.size(16.dp))
-                    if (entry.size >= 0) Text(formatSize(entry.size), style = MaterialTheme.typography.bodySmall)
+                    val info = duration?.let(::formatDuration) ?: entry.size.takeIf { it >= 0 }?.let(::formatSize)
+                    if (info != null) Text(info, style = MaterialTheme.typography.bodySmall)
                 }
             }
         },

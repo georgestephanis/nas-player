@@ -63,6 +63,12 @@ fun artworkFiles(entries: List<RemoteEntry>): Set<String> {
     }.map { it.name }.toSet()
 }
 
+/** Music with at most one image (its cover): rows show tags. Subfolders and stray files (.cue, .log) don't count. */
+fun isAlbumFolder(entries: List<RemoteEntry>): Boolean =
+    entries.any { it.kind == MediaKind.AUDIO } &&
+        entries.none { it.kind == MediaKind.VIDEO } &&
+        entries.count { it.kind == MediaKind.IMAGE } <= 1
+
 /** "Episode 2" sorts before "Episode 10". */
 object NaturalOrder : Comparator<String> {
     private val chunk = Regex("\\d+|\\D+")
