@@ -40,10 +40,12 @@ object SecretBox {
     /** Runs [block] on the keystore thread. Null if it failed, or didn't answer in time. */
     private fun <T> onKeystore(block: () -> T): T? {
         if (System.currentTimeMillis() < unavailableUntil) return null
+        val task = keystoreThread.submit<T> { block() }
         return try {
-            keystoreThread.submit<T> { block() }.get(TIMEOUT_MS, TimeUnit.MILLISECONDS)
+            task.get(TIMEOUT_MS, TimeUnit.MILLISECONDS)
         } catch (e: TimeoutException) {
             // Don't stack up more blocked calls behind a hung keystore for a while.
+            task.cancel(true)
             unavailableUntil = System.currentTimeMillis() + 60_000
             Log.w(TAG, "Android keystore not responding", e)
             null
