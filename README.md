@@ -36,6 +36,7 @@ An Android TV / Google TV app for watching video, listening to music and viewing
   - music: embedded album art, otherwise the folder's cover;
   - photos and photo folders: a preview of the image.
 - Artwork files are hidden from listings and from the play queue.
+- **List size** in Settings: Small, Medium, Large or Extra large, which scales a folder's rows, text and thumbnails.
 - **Sorting** per folder: name A–Z / Z–A (natural order, so episode 2 comes before episode 10), newest, oldest, largest, or by type. Folders always come first, and the choice is remembered.
 
 ### Playback

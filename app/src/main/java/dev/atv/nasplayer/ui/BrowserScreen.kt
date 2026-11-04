@@ -29,6 +29,7 @@ import androidx.compose.material.icons.filled.Movie
 import androidx.compose.material.icons.filled.MusicNote
 import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
@@ -45,7 +46,9 @@ import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.unit.Density
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.Dialog
 import androidx.tv.material3.Button
@@ -172,30 +175,34 @@ fun BrowserScreen(
                     }
                 } else {
                     val targetIndex = entries.indexOfFirst { it.path == focusPath }.coerceAtLeast(0)
-                    LazyColumn(
-                        state = listState,
-                        contentPadding = PaddingValues(bottom = 24.dp),
-                    ) {
-                        itemsIndexed(entries, key = { _, e -> e.path }) { i, entry ->
-                            EntryRow(
-                                serverId = server.id,
-                                entry = entry,
-                                showTags = albumFolder && entry.kind == MediaKind.AUDIO,
-                                thumb = if (thumbs) dev.atv.nasplayer.images.Thumb(
-                                    server.id, entry.path, entry.kind, entry.size, entry.modifiedMs, artworkFor(entry, s.all),
-                                ) else null,
-                                modifier = if (i == targetIndex) Modifier.focusRequester(focusTarget) else Modifier,
-                                onClick = {
-                                    when {
-                                        entry.isDirectory -> { focusPath = null; history.add(entry.path) }
-                                        entry.kind in dev.atv.nasplayer.source.MediaTypes.playable ->
-                                            launchPlayback(context, server, path, s.all, entry)
-                                        else -> launchPlayback(context, server, path, s.all, entry, Engine.VLC)
-                                    }
-                                },
-                                onLongClick = { if (!entry.isDirectory) menuFor = entry },
-                            )
-                        }
+                    val density = LocalDensity.current
+                    val scale = dev.atv.nasplayer.data.Settings.listSize.scale
+                    CompositionLocalProvider(LocalDensity provides Density(density.density * scale, density.fontScale)) {
+                        LazyColumn(
+                            state = listState,
+                            contentPadding = PaddingValues(bottom = 24.dp),
+                        ) {
+                            itemsIndexed(entries, key = { _, e -> e.path }) { i, entry ->
+                                EntryRow(
+                                    serverId = server.id,
+                                    entry = entry,
+                                    showTags = albumFolder && entry.kind == MediaKind.AUDIO,
+                                    thumb = if (thumbs) dev.atv.nasplayer.images.Thumb(
+                                        server.id, entry.path, entry.kind, entry.size, entry.modifiedMs, artworkFor(entry, s.all),
+                                    ) else null,
+                                    modifier = if (i == targetIndex) Modifier.focusRequester(focusTarget) else Modifier,
+                                    onClick = {
+                                        when {
+                                            entry.isDirectory -> { focusPath = null; history.add(entry.path) }
+                                            entry.kind in dev.atv.nasplayer.source.MediaTypes.playable ->
+                                                launchPlayback(context, server, path, s.all, entry)
+                                            else -> launchPlayback(context, server, path, s.all, entry, Engine.VLC)
+                                        }
+                                    },
+                                    onLongClick = { if (!entry.isDirectory) menuFor = entry },
+                                )
+                            }
+                    }
                     }
                     LaunchedEffect(s) {
                         listState.scrollToItem(targetIndex)

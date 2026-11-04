@@ -32,6 +32,7 @@ fun SettingsScreen(onOpenLog: () -> Unit) {
     var mixed by remember { mutableStateOf(Settings.mixedQueue) }
     var thumbs by remember { mutableStateOf(Settings.showThumbnails) }
     var slide by remember { mutableStateOf(Settings.slideshowSeconds) }
+    var listSize by remember { mutableStateOf(Settings.listSize) }
     val context = androidx.compose.ui.platform.LocalContext.current
     val first = remember { FocusRequester() }
     val w = Modifier.widthIn(max = 760.dp)
@@ -60,6 +61,18 @@ fun SettingsScreen(onOpenLog: () -> Unit) {
             }
         }
         item { Text("Browsing", style = MaterialTheme.typography.titleMedium) }
+        item {
+            ListItem(
+                selected = false,
+                onClick = {
+                    listSize = dev.atv.nasplayer.data.ListSize.entries.let { it[(listSize.ordinal + 1) % it.size] }
+                    Settings.listSize = listSize
+                },
+                headlineContent = { Text("List size") },
+                supportingContent = { Text("${listSize.label}: how big files and folders appear. Press OK to change.") },
+                modifier = w,
+            )
+        }
         item {
             ListItem(
                 selected = false,
