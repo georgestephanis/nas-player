@@ -13,6 +13,7 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.wrapContentHeight
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.itemsIndexed
@@ -47,6 +48,7 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.Dialog
 import androidx.tv.material3.Button
+import androidx.tv.material3.DenseListItem
 import androidx.tv.material3.Icon
 import androidx.tv.material3.ListItem
 import androidx.tv.material3.MaterialTheme
@@ -120,10 +122,10 @@ fun BrowserScreen(
 
     BackHandler { goUp() }
 
-    Column(Modifier.fillMaxSize().padding(horizontal = 48.dp, vertical = 32.dp)) {
+    Column(Modifier.fillMaxSize().padding(start = 48.dp, end = 48.dp, top = 24.dp)) {
         Row(verticalAlignment = Alignment.CenterVertically) {
             Column(Modifier.weight(1f)) {
-                Text(server.name, style = MaterialTheme.typography.headlineMedium)
+                Text(server.name, style = MaterialTheme.typography.headlineSmall)
                 Text(
                     if (path == "/" || path.isEmpty()) "/" else path,
                     style = MaterialTheme.typography.bodyMedium,
@@ -138,7 +140,7 @@ fun BrowserScreen(
                 Text(sortOrder.label)
             }
         }
-        Spacer(Modifier.height(16.dp))
+        Spacer(Modifier.height(8.dp))
 
         when (val s = state) {
             ListState.Loading -> Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
@@ -167,8 +169,7 @@ fun BrowserScreen(
                     val targetIndex = entries.indexOfFirst { it.path == focusPath }.coerceAtLeast(0)
                     LazyColumn(
                         state = listState,
-                        verticalArrangement = Arrangement.spacedBy(4.dp),
-                        contentPadding = PaddingValues(bottom = 48.dp),
+                        contentPadding = PaddingValues(bottom = 24.dp),
                     ) {
                         itemsIndexed(entries, key = { _, e -> e.path }) { i, entry ->
                             EntryRow(
@@ -237,11 +238,11 @@ private fun EntryRow(
     onLongClick: () -> Unit,
 ) {
     val resume = if (entry.isDirectory) null else ResumeStore.get(serverId, entry.path)
-    ListItem(
+    DenseListItem(
         selected = false,
         onClick = onClick,
         onLongClick = onLongClick,
-        modifier = modifier,
+        modifier = modifier.height(46.dp),
         leadingContent = {
             val icon = when (entry.kind) {
                 MediaKind.FOLDER -> Icons.Default.Folder
@@ -251,31 +252,34 @@ private fun EntryRow(
                 else -> Icons.AutoMirrored.Filled.InsertDriveFile
             }
             if (thumb == null || entry.kind == MediaKind.OTHER) {
-                Icon(icon, contentDescription = null, modifier = Modifier.size(28.dp))
+                Icon(icon, contentDescription = null, modifier = Modifier.size(22.dp))
             } else {
                 Thumbnail(thumb, icon)
             }
         },
-        headlineContent = { Text(entry.name, maxLines = 1, overflow = TextOverflow.Ellipsis) },
-        supportingContent = if (entry.isDirectory || entry.size < 0) null else {
-            {
-                Column {
-                    Text(formatSize(entry.size))
-                    if (resume != null && !resume.watched && resume.positionMs > 0) {
-                        Spacer(Modifier.height(4.dp))
-                        LinearProgressIndicator(
-                            progress = { resume.progress },
-                            modifier = Modifier.width(220.dp).height(3.dp),
-                            color = MaterialTheme.colorScheme.primary,
-                            trackColor = Color.White.copy(alpha = 0.2f),
-                        )
-                    }
+        headlineContent = {
+            // The fixed row height leaves less than DenseListItem's padding expects; let two lines overflow into it.
+            Column(Modifier.wrapContentHeight(unbounded = true)) {
+                Text(entry.name, style = MaterialTheme.typography.bodyMedium, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                if (resume != null && !resume.watched && resume.positionMs > 0) {
+                    Spacer(Modifier.height(2.dp))
+                    LinearProgressIndicator(
+                        progress = { resume.progress },
+                        modifier = Modifier.width(220.dp).height(2.dp),
+                        color = MaterialTheme.colorScheme.primary,
+                        trackColor = Color.White.copy(alpha = 0.2f),
+                    )
                 }
             }
         },
-        trailingContent = if (resume?.watched == true) {
-            { Icon(Icons.Default.CheckCircle, contentDescription = "Watched", modifier = Modifier.size(22.dp)) }
-        } else null,
+        trailingContent = if (entry.isDirectory || (entry.size < 0 && resume?.watched != true)) null else {
+            {
+                Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    if (resume?.watched == true) Icon(Icons.Default.CheckCircle, contentDescription = "Watched", modifier = Modifier.size(16.dp))
+                    if (entry.size >= 0) Text(formatSize(entry.size), style = MaterialTheme.typography.bodySmall)
+                }
+            }
+        },
     )
 }
 
@@ -336,7 +340,7 @@ private fun Thumbnail(thumb: dev.atv.nasplayer.images.Thumb, fallback: androidx.
     val context = LocalContext.current
     Box(
         Modifier
-            .size(width = 112.dp, height = 63.dp)
+            .size(width = 42.dp, height = 24.dp)
             .clip(RoundedCornerShape(6.dp))
             .background(Color.White.copy(alpha = 0.06f)),
         contentAlignment = Alignment.Center,
@@ -347,8 +351,8 @@ private fun Thumbnail(thumb: dev.atv.nasplayer.images.Thumb, fallback: androidx.
             // Fit, not crop: posters and album art are portrait/square; letterbox them on the tile.
             contentScale = androidx.compose.ui.layout.ContentScale.Fit,
             modifier = Modifier.fillMaxSize(),
-            loading = { Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) { Icon(fallback, null, Modifier.size(26.dp)) } },
-            error = { Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) { Icon(fallback, null, Modifier.size(26.dp)) } },
+            loading = { Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) { Icon(fallback, null, Modifier.size(18.dp)) } },
+            error = { Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) { Icon(fallback, null, Modifier.size(18.dp)) } },
         )
     }
 }
