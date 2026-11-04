@@ -36,7 +36,7 @@ class WebDavBrowser(override val server: ServerConfig) : MediaBrowser {
         val url = resolve(server, path)
         val body = """<?xml version="1.0" encoding="utf-8"?>
             <d:propfind xmlns:d="DAV:"><d:prop>
-            <d:displayname/><d:resourcetype/><d:getcontentlength/><d:getlastmodified/>
+            <d:resourcetype/><d:getcontentlength/><d:getlastmodified/>
             </d:prop></d:propfind>""".trimIndent()
         val request = Request.Builder()
             .url(url)
@@ -52,8 +52,8 @@ class WebDavBrowser(override val server: ServerConfig) : MediaBrowser {
                 parse(xml).filter { it.hrefPath.trimEnd('/') != selfPath.trimEnd('/') }
                     .mapNotNull { r ->
                         val rel = toRelative(r.hrefPath) ?: return@mapNotNull null
-                        val name = r.displayName?.takeIf { it.isNotBlank() }
-                            ?: rel.trimEnd('/').substringAfterLast('/')
+                        // Playback rebuilds paths from the name, so it must be the real file name, not displayname.
+                        val name = rel.trimEnd('/').substringAfterLast('/')
                         if (name.startsWith(".")) return@mapNotNull null
                         RemoteEntry(name, rel.trimEnd('/').ifEmpty { "/" }, r.isCollection, r.length, r.modifiedMs)
                     }
@@ -73,7 +73,6 @@ class WebDavBrowser(override val server: ServerConfig) : MediaBrowser {
 
     private class DavResponse(
         val hrefPath: String,
-        val displayName: String?,
         val isCollection: Boolean,
         val length: Long,
         val modifiedMs: Long,
@@ -86,7 +85,6 @@ class WebDavBrowser(override val server: ServerConfig) : MediaBrowser {
         }
         val out = mutableListOf<DavResponse>()
         var href: String? = null
-        var display: String? = null
         var collection = false
         var length = -1L
         var modified = 0L
@@ -96,7 +94,7 @@ class WebDavBrowser(override val server: ServerConfig) : MediaBrowser {
                 XmlPullParser.START_TAG -> {
                     text = StringBuilder()
                     when (parser.name) {
-                        "response" -> { href = null; display = null; collection = false; length = -1; modified = 0 }
+                        "response" -> { href = null; collection = false; length = -1; modified = 0 }
                         "collection" -> collection = true
                     }
                 }
@@ -105,12 +103,11 @@ class WebDavBrowser(override val server: ServerConfig) : MediaBrowser {
                     val t = text.toString().trim()
                     when (parser.name) {
                         "href" -> href = t
-                        "displayname" -> display = t
                         "getcontentlength" -> length = t.toLongOrNull() ?: -1
                         "getlastmodified" -> modified = parseHttpDate(t)
                         "response" -> href?.let { h ->
                             val p = if (h.startsWith("http")) decodedPath(h.toHttpUrl()) else decode(h)
-                            out += DavResponse(p, display, collection, length, modified)
+                            out += DavResponse(p, collection, length, modified)
                         }
                     }
                 }
