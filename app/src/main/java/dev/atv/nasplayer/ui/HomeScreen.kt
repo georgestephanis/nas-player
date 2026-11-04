@@ -1,5 +1,6 @@
 package dev.atv.nasplayer.ui
 
+import android.app.Activity
 import android.content.BroadcastReceiver
 import android.content.Context
 import android.content.Intent
@@ -47,6 +48,7 @@ import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import androidx.core.content.ContextCompat
 import androidx.tv.material3.Card
 import androidx.tv.material3.Icon
 import androidx.tv.material3.IconButton
@@ -82,7 +84,7 @@ fun HomeScreen(
         val receiver = object : BroadcastReceiver() {
             override fun onReceive(c: Context, i: Intent) { drives = UsbDrives.list() }
         }
-        context.registerReceiver(receiver, UsbDrives.changes)
+        ContextCompat.registerReceiver(context, receiver, UsbDrives.changes, ContextCompat.RECEIVER_NOT_EXPORTED)
         onDispose { context.unregisterReceiver(receiver) }
     }
     val continueWatching = remember(resumeVersion, servers, drives) {
@@ -160,7 +162,7 @@ fun HomeScreen(
                             icon = Icons.Default.Usb,
                             title = drive.name,
                             subtitle = drive.subtitle,
-                            onClick = { if (UsbDrives.hasAccess()) onOpenServer(drive) else UsbDrives.requestAccess(context) },
+                            onClick = { if (UsbDrives.hasAccess()) onOpenServer(drive) else UsbDrives.requestAccess(context as Activity) },
                         )
                     }
                 }

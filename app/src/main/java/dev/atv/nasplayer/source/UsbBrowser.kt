@@ -49,6 +49,7 @@ object UsbDrives {
     /** Broadcasts after which [list] may have changed. */
     val changes = IntentFilter().apply {
         addAction(Intent.ACTION_MEDIA_MOUNTED)
+        addAction(Intent.ACTION_MEDIA_EJECT)
         addAction(Intent.ACTION_MEDIA_UNMOUNTED)
         addAction(Intent.ACTION_MEDIA_REMOVED)
         addAction(Intent.ACTION_MEDIA_BAD_REMOVAL)
@@ -75,14 +76,14 @@ object UsbDrives {
     }
 
     /** Asks once per install; the user comes back to the home screen and opens the drive again. */
-    fun requestAccess(activity: Context) {
+    fun requestAccess(activity: Activity) {
         if (Build.VERSION.SDK_INT >= 30) {
             Toast.makeText(activity, "Turn on NAS Player here to read USB drives, then go back", Toast.LENGTH_LONG).show()
             activity.startActivity(
                 Intent(Settings.ACTION_MANAGE_APP_ALL_FILES_ACCESS_PERMISSION, Uri.parse("package:${activity.packageName}"))
             )
         } else {
-            (activity as? Activity)?.requestPermissions(arrayOf(Manifest.permission.READ_EXTERNAL_STORAGE), 1)
+            activity.requestPermissions(arrayOf(Manifest.permission.READ_EXTERNAL_STORAGE), 1)
         }
     }
 }
