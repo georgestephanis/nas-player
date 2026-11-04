@@ -20,6 +20,7 @@ import dev.atv.nasplayer.source.MediaBrowser
 import dev.atv.nasplayer.source.MediaKind
 import dev.atv.nasplayer.source.MediaTypes
 import dev.atv.nasplayer.source.RemoteFile
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.sync.Semaphore
 import kotlinx.coroutines.sync.withPermit
@@ -31,6 +32,7 @@ import java.io.ByteArrayOutputStream
 import java.io.File
 import java.io.IOException
 import java.security.MessageDigest
+import java.util.concurrent.atomic.AtomicReference
 
 /**
  * Produces a ~480px JPEG per item and keeps it in cacheDir/thumbs, so each file is only ever
@@ -40,7 +42,8 @@ import java.security.MessageDigest
  *    the file over SMB/WebDAV with ranged reads;
  *  - audio: embedded cover art, else folder art;
  *  - folders: folder.jpg / poster.jpg / cover.jpg inside the folder.
- * Failures are cached as empty markers so unthumbnailable files aren't retried on every scroll.
+ * Files that turn out to have no thumbnail are cached as empty markers so they aren't retried on
+ * every scroll. Failed or timed-out attempts aren't, so a sleeping NAS doesn't lose thumbnails for good.
  */
 class ThumbnailFetcher(private val data: Thumb, private val context: Context) : Fetcher {
 
@@ -51,11 +54,13 @@ class ThumbnailFetcher(private val data: Thumb, private val context: Context) : 
             if (file.length() == 0L) return null // cached "no thumbnail"
             return result(file, DataSource.DISK)
         }
-        val bytes = gate.withPermit {
+        val outcome = gate.withPermit {
             withContext(Dispatchers.IO) {
-                withTimeoutOrNull(20_000) { runCatching { generate() }.onFailure { Log.d(TAG, "${data.path}: $it") }.getOrNull() }
+                withTimeoutOrNull(20_000) { runCatching { generate() }.onFailure { if (it is CancellationException) throw it; Log.d(TAG, "${data.path}: $it") } }
             }
         }
+        if (outcome == null || outcome.isFailure) return null
+        val bytes = outcome.getOrNull()
         file.writeBytes(bytes ?: ByteArray(0))
         return if (bytes == null) null else result(file, DataSource.NETWORK)
     }
@@ -144,10 +149,11 @@ class ThumbnailFetcher(private val data: Thumb, private val context: Context) : 
 
 internal fun <T> withRetriever(file: RemoteFile, block: (MediaMetadataRetriever) -> T?): T? {
     val mmr = MediaMetadataRetriever()
-    return try {
+    val readError = AtomicReference<IOException>() // readAt runs on the retriever's thread
+    val result = try {
         mmr.setDataSource(object : MediaDataSource() {
             override fun readAt(position: Long, buffer: ByteArray, offset: Int, size: Int): Int =
-                try { file.readAt(position, buffer, offset, size) } catch (e: IOException) { -1 }
+                try { file.readAt(position, buffer, offset, size) } catch (e: IOException) { readError.set(e); -1 }
             override fun getSize(): Long = file.size
             override fun close() {}
         })
@@ -157,4 +163,7 @@ internal fun <T> withRetriever(file: RemoteFile, block: (MediaMetadataRetriever)
     } finally {
         runCatching { mmr.release() }
     }
+    // The retriever reports a failed read as a bad file; callers need to know it may work next time.
+    readError.get()?.let { throw it }
+    return result
 }
