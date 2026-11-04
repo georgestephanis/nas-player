@@ -1,5 +1,8 @@
 package dev.atv.nasplayer.ui
 
+import android.content.BroadcastReceiver
+import android.content.Context
+import android.content.Intent
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -22,14 +25,18 @@ import androidx.compose.material.icons.filled.Dns
 import androidx.compose.material.icons.filled.Movie
 import androidx.compose.material.icons.filled.MusicNote
 import androidx.compose.material.icons.filled.Settings
+import androidx.compose.material.icons.filled.Usb
 import androidx.compose.material.icons.filled.Wifi
 import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.foundation.background
@@ -56,6 +63,7 @@ import dev.atv.nasplayer.source.MediaBrowser
 import dev.atv.nasplayer.source.MediaKind
 import dev.atv.nasplayer.source.MediaTypes
 import dev.atv.nasplayer.source.RemoteEntry
+import dev.atv.nasplayer.source.UsbDrives
 import kotlinx.coroutines.launch
 
 @Composable
@@ -69,8 +77,16 @@ fun HomeScreen(
     val scope = rememberCoroutineScope()
     val servers by ServerRepository.servers.collectAsState()
     val resumeVersion by ResumeStore.version.collectAsState()
-    val continueWatching = remember(resumeVersion, servers) {
-        ResumeStore.continueWatching().filter { e -> servers.any { it.id == e.serverId } }
+    var drives by remember { mutableStateOf(UsbDrives.list()) }
+    DisposableEffect(Unit) {
+        val receiver = object : BroadcastReceiver() {
+            override fun onReceive(c: Context, i: Intent) { drives = UsbDrives.list() }
+        }
+        context.registerReceiver(receiver, UsbDrives.changes)
+        onDispose { context.unregisterReceiver(receiver) }
+    }
+    val continueWatching = remember(resumeVersion, servers, drives) {
+        ResumeStore.continueWatching().filter { e -> (servers + drives).any { it.id == e.serverId } }
     }
     val discovered by remember { NetworkDiscovery.discover(context) }.collectAsState(initial = emptyList())
     val unsaved = discovered.filter { d -> servers.none { it.host.equals(d.host, true) || it.host.equals(d.name, true) } }
@@ -96,7 +112,7 @@ fun HomeScreen(
                     items(continueWatching, key = { it.serverId + it.path }) { entry ->
                         ResumeCard(
                             entry,
-                            servers.firstOrNull { it.id == entry.serverId }?.name.orEmpty(),
+                            ServerRepository.get(entry.serverId)?.name.orEmpty(),
                             if (entry == continueWatching.first()) Modifier.focusRequester(firstFocus) else Modifier,
                         ) {
                             val server = ServerRepository.get(entry.serverId) ?: return@ResumeCard
@@ -132,6 +148,21 @@ fun HomeScreen(
                         onClick = { onAddServer(null) },
                         modifier = if (servers.isEmpty()) Modifier.focusRequester(firstFocus) else Modifier,
                     )
+                }
+            }
+        }
+
+        if (drives.isNotEmpty()) {
+            item {
+                Shelf("Local drives") {
+                    items(drives, key = { it.id }) { drive ->
+                        TileCard(
+                            icon = Icons.Default.Usb,
+                            title = drive.name,
+                            subtitle = drive.subtitle,
+                            onClick = { if (UsbDrives.hasAccess()) onOpenServer(drive) else UsbDrives.requestAccess(context) },
+                        )
+                    }
                 }
             }
         }

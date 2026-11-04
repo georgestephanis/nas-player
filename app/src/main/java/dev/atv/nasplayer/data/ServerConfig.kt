@@ -5,6 +5,7 @@ import java.util.UUID
 enum class ServerType(val label: String) {
     SMB("SMB / Windows share"),
     WEBDAV("WebDAV / HTTP"),
+    USB("USB drive"),
 }
 
 /**
@@ -12,6 +13,7 @@ enum class ServerType(val label: String) {
  *
  * - SMB: [host] is a hostname or IP, [path] optionally pins a share (and sub-folder) such as "Media/Movies".
  * - WebDAV: [host] is the full base URL, e.g. "http://192.168.1.10:5005/video".
+ * - USB: never saved, see [dev.atv.nasplayer.source.UsbDrives]; [host] is the mount point, e.g. "/storage/1234-ABCD".
  */
 data class ServerConfig(
     val id: String = UUID.randomUUID().toString(),
@@ -30,5 +32,6 @@ data class ServerConfig(
             ServerType.SMB -> "smb://" + host + (port?.let { ":$it" } ?: "") +
                 (path.trim('/').takeIf { it.isNotEmpty() }?.let { "/$it" } ?: "")
             ServerType.WEBDAV -> host
+            ServerType.USB -> type.label
         }
 }

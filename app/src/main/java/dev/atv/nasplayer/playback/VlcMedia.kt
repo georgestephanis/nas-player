@@ -3,6 +3,7 @@ package dev.atv.nasplayer.playback
 import android.net.Uri
 import dev.atv.nasplayer.data.ServerConfig
 import dev.atv.nasplayer.data.ServerType
+import dev.atv.nasplayer.source.UsbBrowser
 import dev.atv.nasplayer.source.WebDavBrowser
 
 /** Builds the URL + options libVLC needs to stream a file directly with its own SMB/HTTP clients. */
@@ -36,5 +37,6 @@ object VlcMedia {
             }.build()
             Target(url.toString(), emptyList())
         }
+        ServerType.USB -> Target(UsbBrowser(server).playbackUri(path).toString(), emptyList())
     }
 }

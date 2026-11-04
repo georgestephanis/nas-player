@@ -24,6 +24,19 @@ Useful sample files, generated with `ffmpeg` (`-f lavfi -i testsrc2` for video, 
 | Throughput | 60–100 Mbit/s H.264 1080p with `noise` so it doesn't compress |
 | Thumbnails | `poster.jpg` in folders, FLAC with an attached cover (`-disposition:v attached_pic`), JPEG photos |
 
+## Simulating a USB drive
+
+The emulator can fake a removable volume, which gets you the same `/storage/<uuid>` path a real drive has. It doesn't exercise the filesystem support of real TV firmware, so try a real drive as well.
+
+```bash
+adb shell sm set-virtual-disk true
+adb shell sm list-disks                 # e.g. disk:7,288
+adb shell sm partition disk:7,288 public
+adb shell sm list-volumes               # e.g. public:7,289 mounted 57FB-1C1E
+adb push /path/to/media /storage/57FB-1C1E/Media
+adb shell sm unmount public:7,289       # "unplug"; sm mount to plug it back in
+```
+
 ## Driving the TV over adb
 
 ```bash

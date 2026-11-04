@@ -91,7 +91,7 @@ fun ServerEditScreen(existingId: String?, prefill: ServerConfig?, onDone: () -> 
         Text(if (existing != null) "Edit source" else "Add source", style = MaterialTheme.typography.headlineMedium)
         run {
             Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                ServerType.entries.forEachIndexed { i, t ->
+                ServerType.entries.filter { it != ServerType.USB }.forEachIndexed { i, t ->
                     FilterChip(
                         selected = type == t,
                         onClick = { type = t },

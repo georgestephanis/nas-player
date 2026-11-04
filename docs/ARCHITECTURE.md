@@ -7,7 +7,7 @@ MainActivity ──► HomeScreen ─► BrowserScreen ─► launchPlayback() �
                   SettingsScreen, ServerEditScreen,                   ├─ ExoHost   (Media3 + FFmpeg)
                   PlaybackLogScreen                                   ├─ VlcHost   (libVLC)
                                                                       └─ ImageHost (Coil)
-        MediaBrowser (SmbBrowser / WebDavBrowser)  ── lists folders
+        MediaBrowser (Smb/WebDav/UsbBrowser)       ── lists folders
         NasDataSource (SmbDataSource / OkHttp)     ── streams to ExoPlayer
         RemoteFile                                 ── random access for thumbnails & photos
 ```
@@ -17,7 +17,7 @@ MainActivity ──► HomeScreen ─► BrowserScreen ─► launchPlayback() �
 | Package | Contents |
 |---|---|
 | `data/` | `ServerConfig` + `ServerRepository` (saved sources, JSON in SharedPreferences), `SecretBox` (Keystore password encryption with a timeout fallback), `ResumeStore` (positions, Continue watching), `Settings`. |
-| `source/` | `MediaBrowser` interface with `SmbBrowser` (smbj, share enumeration over SRVSVC via smbj-rpc) and `WebDavBrowser` (OkHttp `PROPFIND`). `SmbSessionPool` caches one authenticated session per server. `RemoteFile` gives block-cached ranged reads. `RemoteEntry`/`MediaTypes` classify files; `sortEntries` and `artworkFiles` live in `MediaBrowser.kt`. |
+| `source/` | `MediaBrowser` interface with `SmbBrowser` (smbj, share enumeration over SRVSVC via smbj-rpc) `WebDavBrowser` (OkHttp `PROPFIND`) and `UsbBrowser` (`java.io.File` under `/storage/<uuid>`; `UsbDrives` lists mounted removable volumes as unsaved `ServerConfig`s). `SmbSessionPool` caches one authenticated session per server. `RemoteFile` gives block-cached ranged reads. `RemoteEntry`/`MediaTypes` classify files; `sortEntries` and `artworkFiles` live in `MediaBrowser.kt`. |
 | `playback/` | `PlaybackRequest` (a folder queue passed to `PlayerActivity`), the three hosts, `EngineChooser` (which engine first, when to fall back), `ExoFactory` (extractor flags, buffers, FFmpeg renderers), `SmbDataSource` (pipelined SMB reads for Media3), `NasDataSource` (routes `smb://` / `dav://` URIs), `VlcMedia` (URLs for libVLC's own SMB/HTTP clients), `Subtitles` (sidecar matching), `PlaybackLog` + `PlaybackRecorder`. |
 | `images/` | Coil fetchers: `ThumbnailFetcher` (frames via `MediaMetadataRetriever`, embedded art, folder/sibling art, disk cache in `cacheDir/thumbs`) and `FullImageFetcher` (photos). |
 | `discovery/` | `NetworkDiscovery`: NSD browse for `_smb._tcp`. |

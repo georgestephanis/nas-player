@@ -8,6 +8,7 @@ import dev.atv.nasplayer.data.Settings
 class NasPlayerApp : Application(), coil3.SingletonImageLoader.Factory {
     override fun onCreate() {
         super.onCreate()
+        dev.atv.nasplayer.source.UsbDrives.init(this)
         ServerRepository.init(this)
         ResumeStore.init(this)
         Settings.init(this)
