@@ -20,6 +20,7 @@ import dev.atv.nasplayer.source.MediaBrowser
 import dev.atv.nasplayer.source.MediaKind
 import dev.atv.nasplayer.source.MediaTypes
 import dev.atv.nasplayer.source.RemoteFile
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.sync.Semaphore
 import kotlinx.coroutines.sync.withPermit
@@ -54,7 +55,7 @@ class ThumbnailFetcher(private val data: Thumb, private val context: Context) : 
         }
         val outcome = gate.withPermit {
             withContext(Dispatchers.IO) {
-                withTimeoutOrNull(20_000) { runCatching { generate() }.onFailure { Log.d(TAG, "${data.path}: $it") } }
+                withTimeoutOrNull(20_000) { runCatching { generate() }.onFailure { if (it is CancellationException) throw it; Log.d(TAG, "${data.path}: $it") } }
             }
         }
         if (outcome == null || outcome.isFailure) return null
