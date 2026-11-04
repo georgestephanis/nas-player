@@ -32,6 +32,7 @@ import java.io.ByteArrayOutputStream
 import java.io.File
 import java.io.IOException
 import java.security.MessageDigest
+import java.util.concurrent.atomic.AtomicReference
 
 /**
  * Produces a ~480px JPEG per item and keeps it in cacheDir/thumbs, so each file is only ever
@@ -148,11 +149,11 @@ class ThumbnailFetcher(private val data: Thumb, private val context: Context) : 
 
 internal fun <T> withRetriever(file: RemoteFile, block: (MediaMetadataRetriever) -> T?): T? {
     val mmr = MediaMetadataRetriever()
-    var readError: IOException? = null
+    val readError = AtomicReference<IOException>() // readAt runs on the retriever's thread
     val result = try {
         mmr.setDataSource(object : MediaDataSource() {
             override fun readAt(position: Long, buffer: ByteArray, offset: Int, size: Int): Int =
-                try { file.readAt(position, buffer, offset, size) } catch (e: IOException) { readError = e; -1 }
+                try { file.readAt(position, buffer, offset, size) } catch (e: IOException) { readError.set(e); -1 }
             override fun getSize(): Long = file.size
             override fun close() {}
         })
@@ -163,6 +164,6 @@ internal fun <T> withRetriever(file: RemoteFile, block: (MediaMetadataRetriever)
         runCatching { mmr.release() }
     }
     // The retriever reports a failed read as a bad file; callers need to know it may work next time.
-    readError?.let { throw it }
+    readError.get()?.let { throw it }
     return result
 }
