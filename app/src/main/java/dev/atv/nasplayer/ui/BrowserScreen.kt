@@ -178,30 +178,30 @@ fun BrowserScreen(
                     val density = LocalDensity.current
                     val scale = remember { dev.atv.nasplayer.data.Settings.listSize.scale }
                     CompositionLocalProvider(LocalDensity provides Density(density.density * scale, density.fontScale)) {
-                    LazyColumn(
-                        state = listState,
-                        contentPadding = PaddingValues(bottom = 24.dp),
-                    ) {
-                        itemsIndexed(entries, key = { _, e -> e.path }) { i, entry ->
-                            EntryRow(
-                                serverId = server.id,
-                                entry = entry,
-                                showTags = albumFolder && entry.kind == MediaKind.AUDIO,
-                                thumb = if (thumbs) dev.atv.nasplayer.images.Thumb(
-                                    server.id, entry.path, entry.kind, entry.size, entry.modifiedMs, artworkFor(entry, s.all),
-                                ) else null,
-                                modifier = if (i == targetIndex) Modifier.focusRequester(focusTarget) else Modifier,
-                                onClick = {
-                                    when {
-                                        entry.isDirectory -> { focusPath = null; history.add(entry.path) }
-                                        entry.kind in dev.atv.nasplayer.source.MediaTypes.playable ->
-                                            launchPlayback(context, server, path, s.all, entry)
-                                        else -> launchPlayback(context, server, path, s.all, entry, Engine.VLC)
-                                    }
-                                },
-                                onLongClick = { if (!entry.isDirectory) menuFor = entry },
-                            )
-                        }
+                        LazyColumn(
+                            state = listState,
+                            contentPadding = PaddingValues(bottom = 24.dp),
+                        ) {
+                            itemsIndexed(entries, key = { _, e -> e.path }) { i, entry ->
+                                EntryRow(
+                                    serverId = server.id,
+                                    entry = entry,
+                                    showTags = albumFolder && entry.kind == MediaKind.AUDIO,
+                                    thumb = if (thumbs) dev.atv.nasplayer.images.Thumb(
+                                        server.id, entry.path, entry.kind, entry.size, entry.modifiedMs, artworkFor(entry, s.all),
+                                    ) else null,
+                                    modifier = if (i == targetIndex) Modifier.focusRequester(focusTarget) else Modifier,
+                                    onClick = {
+                                        when {
+                                            entry.isDirectory -> { focusPath = null; history.add(entry.path) }
+                                            entry.kind in dev.atv.nasplayer.source.MediaTypes.playable ->
+                                                launchPlayback(context, server, path, s.all, entry)
+                                            else -> launchPlayback(context, server, path, s.all, entry, Engine.VLC)
+                                        }
+                                    },
+                                    onLongClick = { if (!entry.isDirectory) menuFor = entry },
+                                )
+                            }
                     }
                     }
                     LaunchedEffect(s) {
