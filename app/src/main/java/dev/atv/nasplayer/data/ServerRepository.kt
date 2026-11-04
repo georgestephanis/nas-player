@@ -98,13 +98,13 @@ object ServerRepository {
                     port = if (o.has("port")) o.getInt("port") else null,
                     path = o.optString("path"),
                     username = o.optString("username"),
-                    password = SecretBox.decrypt(stored) ?: "".also { unreadPasswords[id] = stored },
+                    password = SecretBox.decrypt(stored) ?: run { unreadPasswords[id] = stored; "" },
                     domain = o.optString("domain"),
                     allowInsecureTls = o.optBoolean("allowInsecureTls"),
                 )
             }
         } catch (e: Exception) {
-            // The next save replaces the list, so keep a copy. ponytail: recoverable over adb only, add a restore if this ever happens.
+            // The next save replaces the list, so keep a copy. It can only be recovered over adb; add a restore if this ever happens.
             Log.e("ServerRepository", "Saved sources are unreadable", e)
             prefs.edit().putString("$KEY.unreadable", raw).commit()
             emptyList()
