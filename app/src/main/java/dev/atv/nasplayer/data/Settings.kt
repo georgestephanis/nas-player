@@ -42,7 +42,7 @@ object Settings {
         set(v) = prefs.edit().putBoolean("thumbnails", v).apply()
 
     var listSize: ListSize
-        get() = runCatching { ListSize.valueOf(prefs.getString("listSize", null)!!) }.getOrDefault(ListSize.MEDIUM)
+        get() = runCatching { ListSize.valueOf(prefs.getString("listSize", ListSize.MEDIUM.name).orEmpty()) }.getOrDefault(ListSize.MEDIUM)
         set(v) = prefs.edit().putString("listSize", v.name).apply()
 
     var slideshowSeconds: Int

@@ -176,7 +176,7 @@ fun BrowserScreen(
                 } else {
                     val targetIndex = entries.indexOfFirst { it.path == focusPath }.coerceAtLeast(0)
                     val density = LocalDensity.current
-                    val scale = remember { dev.atv.nasplayer.data.Settings.listSize.scale }
+                    val scale = dev.atv.nasplayer.data.Settings.listSize.scale
                     CompositionLocalProvider(LocalDensity provides Density(density.density * scale, density.fontScale)) {
                         LazyColumn(
                             state = listState,
