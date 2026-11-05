@@ -62,9 +62,9 @@ object ResumeStore {
     }
 
     /** Partially watched items, most recent first. */
-    fun continueWatching(limit: Int = 15): List<ResumeEntry> =
+    fun continueWatching(limit: Int = 15, include: (ResumeEntry) -> Boolean): List<ResumeEntry> =
         prefs.all.values.mapNotNull { (it as? String)?.let(::parse) }
-            .filter { it.positionMs > 0 && !it.watched }
+            .filter { it.positionMs > 0 && !it.watched && include(it) }
             .sortedByDescending { it.updatedAt }
             .take(limit)
 

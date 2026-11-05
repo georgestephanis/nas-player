@@ -26,6 +26,7 @@ data class ServerConfig(
     val password: String = "",
     val domain: String = "",
     val allowInsecureTls: Boolean = false,
+    val showInContinueWatching: Boolean = true,
 ) {
     val subtitle: String
         get() = when (type) {

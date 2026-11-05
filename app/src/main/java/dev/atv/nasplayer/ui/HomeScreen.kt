@@ -88,7 +88,7 @@ fun HomeScreen(
         onDispose { context.unregisterReceiver(receiver) }
     }
     val continueWatching = remember(resumeVersion, servers, drives) {
-        ResumeStore.continueWatching().filter { e -> (servers + drives).any { it.id == e.serverId } }
+        ResumeStore.continueWatching { e -> (servers + drives).any { it.id == e.serverId && it.showInContinueWatching } }
     }
     val discovered by remember { NetworkDiscovery.discover(context) }.collectAsState(initial = emptyList())
     val unsaved = discovered.filter { d -> servers.none { it.host.equals(d.host, true) || it.host.equals(d.name, true) } }
