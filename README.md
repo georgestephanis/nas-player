@@ -28,6 +28,8 @@ An Android TV / Google TV app for watching video, listening to music and viewing
 ### Sources
 - **SMB 2/3 and WebDAV.** Leave the share blank to choose from all shares on the server, or pin a share or subfolder such as `Media/Movies`.
 - SMB servers that advertise over **mDNS/Bonjour** (TrueNAS, Synology, QNAP, macOS, Samba with Avahi) appear under "Found on your network". Select one to add it.
+- When adding a source, the form suggests servers it knows about, saved logins for that server, and folders other sources use. **Browse folders** lists the server's folders using the login in the form.
+- **Show in Continue watching** can be turned off per source. Your place in its files is still remembered.
 - **Test connection** before saving. Hold OK on a source to edit or remove it.
 - **USB drives** appear under "Local drives" while plugged in. The first time, the app opens Android's *All files access* screen: turn on NAS Player there and go back. Google TV has no document picker to use instead. The app only reads from drives, though Android's wording for this permission also covers changing and deleting files.
 

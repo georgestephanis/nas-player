@@ -77,6 +77,7 @@ object ServerRepository {
                 put("password", storedPassword(s.password, unreadPasswords[s.id], SecretBox::encrypt))
                 put("domain", s.domain)
                 put("allowInsecureTls", s.allowInsecureTls)
+                put("showInContinueWatching", s.showInContinueWatching)
             })
             if (s.password.isNotEmpty()) unreadPasswords.remove(s.id)
         }
@@ -102,6 +103,7 @@ object ServerRepository {
                     password = SecretBox.decrypt(stored) ?: run { unreadPasswords[id] = stored; "" },
                     domain = o.optString("domain"),
                     allowInsecureTls = o.optBoolean("allowInsecureTls"),
+                    showInContinueWatching = o.optBoolean("showInContinueWatching", true),
                 )
             }
         } catch (e: Exception) {
