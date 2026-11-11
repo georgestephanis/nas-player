@@ -77,7 +77,7 @@ class PlayerActivity : ComponentActivity() {
 }
 
 /** One mounted engine instance; changing any field tears the old player down and starts a new one. */
-data class PlaybackSession(val engine: Engine, val index: Int, val startMs: Long, val nonce: Int)
+data class PlaybackSession(val engine: Engine, val index: Int, val startMs: Long, val nonce: Int, val softwareDecode: Boolean = false)
 
 @androidx.annotation.OptIn(UnstableApi::class)
 @Composable
@@ -93,10 +93,10 @@ fun PlayerScreen(server: ServerConfig, request: PlaybackRequest, onExit: () -> U
     fun isImage(i: Int) = dev.atv.nasplayer.source.MediaTypes.kindOf(request.items[i]) == dev.atv.nasplayer.source.MediaKind.IMAGE
     fun engineFor(i: Int) = request.forcedEngine ?: EngineChooser.initialEngine(request.items[i], Settings.enginePreference)
 
-    fun start(i: Int, startMs: Long, engine: Engine = engineFor(i)) {
+    fun start(i: Int, startMs: Long, engine: Engine = engineFor(i), softwareDecode: Boolean = false) {
         error = null
         resumePrompt = null
-        session = PlaybackSession(engine, i, startMs, ++nonce)
+        session = PlaybackSession(engine, i, startMs, ++nonce, softwareDecode)
     }
 
     fun begin(i: Int, ask: Boolean) {
@@ -159,7 +159,9 @@ fun PlayerScreen(server: ServerConfig, request: PlaybackRequest, onExit: () -> U
                     onPrevious = ::previous,
                     onFallback = { pos, reason ->
                         Toast.makeText(context, "Switching to VLC engine ($reason)", Toast.LENGTH_SHORT).show()
-                        start(s.index, pos, Engine.VLC)
+                        // Handed over to seek: VLC's hardware decoder on the Streamer wedges (frozen picture,
+                        // audio carries on) when a seek flushes it, so decode these in software.
+                        start(s.index, pos, Engine.VLC, softwareDecode = reason == "not seekable")
                     },
                     onError = { msg -> error = s to msg },
                     onExit = onExit,
