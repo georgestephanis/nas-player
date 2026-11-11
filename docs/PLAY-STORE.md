@@ -18,10 +18,8 @@ Status as of 2026-11-11. Items marked **Blocker** will get the app rejected or s
   convention suggests you own `atv.dev`. Play doesn't check that, but if you'd rather use your own
   domain (e.g. `com.stephanis.nasplayer`), change it now.
 - [ ] **App name.** "NAS Player" is generic. Search Play for clashes. The title limit is 30 characters.
-- [ ] **TV only, or phones too?** The manifest currently allows phones and tablets (`leanback` and
-  `touchscreen` not required, plus a phone `LAUNCHER` entry). The UI is built for D-pad. For a
-  TV-only v1, set `android.software.leanback` to `required="true"` and add only the TV form factor
-  in Play Console.
+- [x] **TV only.** `android.software.leanback` is required and the phone launcher entry is gone, so Play
+  only offers the app to TVs. Add only the Android TV form factor in Play Console.
 
 ## Code changes
 
@@ -79,8 +77,7 @@ Status as of 2026-11-11. Items marked **Blocker** will get the app rejected or s
 - [ ] **TV banner, 1280×720** (the in-app banner is 640×360; re-export it at the larger size).
 - [ ] **TV screenshots, 1920×1080**, at least one; aim for 4–6: home, a folder, the player bar,
   music with cover art, photos, settings. Use only freely licensed sample media and neutral folder
-  and server names in every screenshot. Play may also ask for phone screenshots; check when you get
-  there.
+  and server names in every screenshot.
 - [ ] Category: Video Players & Editors. Contact email: required, and shown publicly.
 
 ## Android TV specifics
@@ -103,5 +100,4 @@ Status as of 2026-11-11. Items marked **Blocker** will get the app rejected or s
 2. [ ] Closed testing: 12+ testers, run for 14 days, and fix whatever they report.
 3. [ ] Apply for production access, answering the questions about the test.
 4. [ ] Production: a staged rollout (e.g. 20%) is optional for a new app, but harmless.
-5. [ ] Afterwards, watch *Android vitals* for crashes and ANRs. Play's pre-launch report runs the app
-   on phones and may flag phone-only issues if you allowed phones.
+5. [ ] Afterwards, watch *Android vitals* for crashes and ANRs.
