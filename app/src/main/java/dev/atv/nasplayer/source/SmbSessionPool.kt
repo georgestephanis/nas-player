@@ -1,5 +1,7 @@
 package dev.atv.nasplayer.source
 
+import com.hierynomus.mserref.NtStatus
+import com.hierynomus.mssmb2.SMBApiException
 import com.hierynomus.smbj.SMBClient
 import com.hierynomus.smbj.SmbConfig
 import com.hierynomus.smbj.auth.AuthenticationContext
@@ -58,6 +60,20 @@ object SmbSessionPool {
         val old = synchronized(entries) { entries.remove(serverId) } ?: return
         Thread({ runCatching { old.connection.close(true) } }, "smb-close").apply { isDaemon = true }.start()
     }
+
+    /**
+     * True when [e] means the cached connection is unusable and is worth dropping and retrying. An
+     * [SMBApiException] is the server answering (file missing, access denied), except for the
+     * statuses that say the session or tree itself has gone.
+     */
+    fun isConnectionError(e: Throwable): Boolean =
+        e !is SMBApiException || e.status in STALE
+
+    private val STALE = setOf(
+        NtStatus.STATUS_NETWORK_SESSION_EXPIRED,
+        NtStatus.STATUS_USER_SESSION_DELETED,
+        NtStatus.STATUS_NETWORK_NAME_DELETED,
+    )
 
     private fun entry(config: ServerConfig): Entry = synchronized(lockFor(config.id)) {
         val serverId = config.id
