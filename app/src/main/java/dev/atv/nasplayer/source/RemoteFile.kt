@@ -48,7 +48,12 @@ private class SmbRemoteFile(server: ServerConfig, path: String) : RemoteFile {
             rel, setOf(AccessMask.GENERIC_READ), null, SMB2ShareAccess.ALL, SMB2CreateDisposition.FILE_OPEN, null,
         )
     }
-    override val size: Long = file.fileInformation.standardInformation.endOfFile
+    override val size: Long = try {
+        file.fileInformation.standardInformation.endOfFile
+    } catch (e: Exception) {
+        runCatching { file.close() }  // the caller never gets an object to close
+        throw e
+    }
     override fun readAt(position: Long, buf: ByteArray, off: Int, len: Int): Int {
         if (position >= size) return -1
         return file.read(buf, position, off, minOf(len.toLong(), size - position).toInt())

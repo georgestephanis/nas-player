@@ -11,7 +11,9 @@ import com.hierynomus.msdtyp.AccessMask
 import com.hierynomus.mserref.NtStatus
 import com.hierynomus.mssmb2.SMB2CreateDisposition
 import com.hierynomus.mssmb2.SMB2ShareAccess
+import com.hierynomus.mssmb2.SMBApiException
 import com.hierynomus.mssmb2.messages.SMB2ReadResponse
+import com.hierynomus.smbj.common.SMBRuntimeException
 import com.hierynomus.smbj.share.File
 import com.hierynomus.smbj.share.readAheadAsync
 import dev.atv.nasplayer.source.SmbBrowser
@@ -50,17 +52,18 @@ class SmbDataSource : BaseDataSource(/* isNetwork = */ true) {
         if (shareName == null) throw IOException("Missing share")
 
         val f = try {
-            openFile(serverId, shareName, rel)
-        } catch (e: Exception) {
-            SmbSessionPool.invalidate(serverId)
             try {
                 openFile(serverId, shareName, rel)
-            } catch (e2: Exception) {
-                throw DataSourceException(e2, PlaybackException.ERROR_CODE_IO_NETWORK_CONNECTION_FAILED)
+            } catch (e: Exception) {
+                if (!SmbSessionPool.isConnectionError(e)) throw e
+                SmbSessionPool.invalidate(serverId)
+                openFile(serverId, shareName, rel)
             }
+        } catch (e: Exception) {
+            throw asDataSourceException(e)
         }
         file = f
-        val fileSize = f.fileInformation.standardInformation.endOfFile
+        val fileSize = smb { f.fileInformation.standardInformation.endOfFile }
         if (dataSpec.position > fileSize) {
             throw DataSourceException(PlaybackException.ERROR_CODE_IO_READ_POSITION_OUT_OF_RANGE)
         }
@@ -107,7 +110,7 @@ class SmbDataSource : BaseDataSource(/* isNetwork = */ true) {
         val f = file ?: return
         while (inFlight.size < READ_AHEAD && nextRequestOffset < endOffset) {
             val len = minOf(chunkSize.toLong(), endOffset - nextRequestOffset).toInt()
-            inFlight.add(len to f.readAheadAsync(nextRequestOffset, len))
+            inFlight.add(len to smb { f.readAheadAsync(nextRequestOffset, len) })
             nextRequestOffset += len
         }
     }
@@ -143,11 +146,30 @@ class SmbDataSource : BaseDataSource(/* isNetwork = */ true) {
         return true
     }
 
-    private fun drain() {
-        while (inFlight.isNotEmpty()) {
-            val (_, fut) = inFlight.pollFirst()!!
-            runCatching { fut.get(5, TimeUnit.SECONDS) }
+    /**
+     * Forgets the reads in flight without waiting for them (smbj futures can't be cancelled). Their
+     * replies still arrive and smbj discards them, so a seek or close on a slow link doesn't stall.
+     */
+    private fun drain() = inFlight.clear()
+
+    /** smbj throws unchecked [SMBRuntimeException]s; Media3 only handles IOExceptions. */
+    private inline fun <T> smb(block: () -> T): T = try {
+        block()
+    } catch (e: SMBRuntimeException) {
+        throw asDataSourceException(e)
+    }
+
+    private fun asDataSourceException(e: Exception): DataSourceException {
+        val status = (e as? SMBApiException)?.status
+        val code = when (status) {
+            NtStatus.STATUS_OBJECT_NAME_NOT_FOUND, NtStatus.STATUS_OBJECT_PATH_NOT_FOUND,
+            NtStatus.STATUS_NO_SUCH_FILE, NtStatus.STATUS_NOT_FOUND, NtStatus.STATUS_DELETE_PENDING,
+            NtStatus.STATUS_BAD_NETWORK_NAME -> PlaybackException.ERROR_CODE_IO_FILE_NOT_FOUND
+            NtStatus.STATUS_ACCESS_DENIED -> PlaybackException.ERROR_CODE_IO_NO_PERMISSION
+            null -> if (e is DataSourceException) return e else PlaybackException.ERROR_CODE_IO_NETWORK_CONNECTION_FAILED
+            else -> PlaybackException.ERROR_CODE_IO_UNSPECIFIED
         }
+        return DataSourceException(e, code)
     }
 
     override fun getUri(): Uri? = uri
