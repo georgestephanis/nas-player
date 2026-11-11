@@ -7,6 +7,7 @@ regular MP4 with the index up front.
 
     tools/index-mp4.py /Volumes/Media            # list files that need it
     tools/index-mp4.py /Volumes/Media --fix      # remux them in place
+    tools/index-mp4.py file.mp4 --fix            # one file (yt-dlp: --exec "after_move:index-mp4.py --fix {}")
     tools/index-mp4.py --self-test
 """
 import os
@@ -77,6 +78,10 @@ def fix(path):
 
 
 def scan(root):
+    if os.path.isfile(root):  # a single file, e.g. from yt-dlp --exec
+        if os.path.splitext(root)[1].lower() in EXTS and needs_index(root):
+            yield root
+        return
     for d, dirs, files in os.walk(root):
         dirs[:] = [x for x in dirs if not x.startswith(".")]
         for name in sorted(files):
@@ -100,6 +105,7 @@ def self_test():
         )
         assert needs_index(p), top_boxes(p)
         assert list(scan(d)) == [p]
+        assert list(scan(p)) == [p]
         fix(p)
         assert not needs_index(p), top_boxes(p)
         assert top_boxes(p).index("moov") < top_boxes(p).index("mdat")
