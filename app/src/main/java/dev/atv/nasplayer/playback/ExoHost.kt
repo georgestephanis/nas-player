@@ -209,8 +209,19 @@ fun ExoHost(
         seekBy = { delta ->
             // currentPosition already reflects a pending seek, so quick presses add up.
             val end = if (player.duration > 0) player.duration - 1_000 else Long.MAX_VALUE
-            player.seekTo((player.currentPosition + delta).coerceIn(0, end))
-            position = player.currentPosition
+            val target = (player.currentPosition + delta).coerceIn(0, end)
+            if (!player.isCurrentMediaItemSeekable) {
+                // Fragmented MP4 with no sidx (and other index-less files): ExoPlayer turns every seek
+                // into a seek to 0. VLC can seek these, so hand off at the target position.
+                if (!handedOff) {
+                    handedOff = true
+                    recorder.finish(Outcome.FELL_BACK, "not seekable in ExoPlayer")
+                    onFallback(target, "not seekable")
+                }
+            } else {
+                player.seekTo(target)
+                position = player.currentPosition
+            }
         },
         onNext = onNext,
         onPrevious = { if (player.currentPosition > 5_000) player.seekTo(0) else onPrevious() },

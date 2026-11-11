@@ -154,8 +154,7 @@ internal fun PlayerControls(
                     AndroidKeyEvent.KEYCODE_DPAD_DOWN -> { selected = row ?: playPauseIndex; show(); true }
                     AndroidKeyEvent.KEYCODE_INFO -> { show(); true }
                     AndroidKeyEvent.KEYCODE_DPAD_UP -> {
-                        if (row != null) { selected = null; show() } else trackMenu = tracks()
-                        true
+                        selected = null; show(); true
                     }
                     AndroidKeyEvent.KEYCODE_MENU, AndroidKeyEvent.KEYCODE_CAPTIONS -> { trackMenu = tracks(); true }
                     AndroidKeyEvent.KEYCODE_MEDIA_NEXT, AndroidKeyEvent.KEYCODE_CHANNEL_UP -> { next(); true }
