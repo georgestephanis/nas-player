@@ -4,19 +4,18 @@ Notes for agents working on this repo. See `README.md` and `docs/ARCHITECTURE.md
 
 ## Building and installing on the Google TV Streamer
 
-- **Build release APKs on `sardonyx`** (`ssh sardonyx`, checkout at `~/code/nas-player`). Its
-  `~/.android/debug.keystore` signed the installed app; an APK from any other machine fails with
+- **Signing:** release builds use `~/.android/nas-player.keystore` when it exists (the debug key from
+  `sardonyx` that signed the installed app; standard debug passwords), else the machine's own debug
+  key. That file is on the main Mac and on sardonyx. Without it, installs fail with
   `INSTALL_FAILED_UPDATE_INCOMPATIBLE`, and uninstalling to get around that wipes saved sources and
-  resume positions. Never do that.
-- sardonyx build: `cd ~/code/nas-player && git fetch && git checkout <branch> && git pull &&
-  JAVA_HOME=/opt/homebrew/opt/openjdk@21 ./gradlew -q --no-daemon assembleRelease`
-  (`local.properties` there points at `~/Library/Android/sdk`; it is gitignored).
-- Local Mac build (compile check only): `JAVA_HOME=/opt/homebrew/opt/openjdk@17 ./gradlew assembleRelease`.
+  resume positions. Never do that. Key files are gitignored and must never be committed.
+- Main Mac: `JAVA_HOME=/opt/homebrew/opt/openjdk@17 ./gradlew assembleRelease`.
+- sardonyx (`ssh sardonyx`, checkout at `~/code/nas-player`, `local.properties` points at
+  `~/Library/Android/sdk`): `JAVA_HOME=/opt/homebrew/opt/openjdk@21 ./gradlew -q --no-daemon assembleRelease`.
 - **The Streamer is 32-bit userspace (`armeabi-v7a`)**. Install `app-armeabi-v7a-release.apk`;
   the arm64 one fails with `INSTALL_FAILED_NO_MATCHING_ABIS`.
-- Device: `adb -s 192.168.0.140:5555`. The main Mac's adb is already authorised there, so copy the
-  APK back (`scp sardonyx:code/nas-player/app/build/outputs/apk/release/app-armeabi-v7a-release.apk .`)
-  and `adb install -r` it from the Mac.
+- Device: `adb -s 192.168.0.140:5555` (the main Mac's adb is authorised there):
+  `adb install -r app/build/outputs/apk/release/app-armeabi-v7a-release.apk`.
 - Check the keys match before installing: `apksigner verify --print-certs` on the built APK vs the
   installed one (`adb shell pm path dev.atv.nasplayer`, then `adb pull`). Expected SHA-256:
   `5187ed066e99cf289ab8f4c5626f8e2ef229bba64d36bd47888160c4bebd2425`.

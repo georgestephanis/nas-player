@@ -18,11 +18,24 @@ android {
 
     }
 
+    // The key the installed app was first signed with (sardonyx's debug key, standard debug passwords).
+    // Android only accepts updates signed with the same key, so every computer that builds for the
+    // TV needs a copy at this path; without it, builds fall back to this computer's own debug key.
+    val sharedKey = File(System.getProperty("user.home"), ".android/nas-player.keystore")
+    signingConfigs {
+        create("shared") {
+            storeFile = sharedKey
+            storePassword = "android"
+            keyAlias = "androiddebugkey"
+            keyPassword = "android"
+        }
+    }
+
     buildTypes {
         release {
             // smbj relies on reflection (event bus, ASN.1); keep the release build unminified.
             isMinifyEnabled = false
-            signingConfig = signingConfigs.getByName("debug")
+            signingConfig = signingConfigs.getByName(if (sharedKey.exists()) "shared" else "debug")
         }
     }
 
