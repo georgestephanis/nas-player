@@ -11,6 +11,7 @@ regular MP4 with the index up front.
     tools/index-mp4.py --self-test
 """
 import os
+import shutil
 import struct
 import subprocess
 import sys
@@ -44,34 +45,45 @@ def needs_index(path):
     return "moof" in t and "sidx" not in t  # ExoPlayer seeks fragmented MP4 by sidx only, never mfra
 
 
-def duration(path):
+def probe(path):
+    """(duration in seconds, number of streams)."""
     out = subprocess.run(
-        ["ffprobe", "-v", "error", "-show_entries", "format=duration", "-of", "csv=p=0", path],
+        ["ffprobe", "-v", "error", "-show_entries", "format=duration,nb_streams", "-of", "default=nw=1", path],
         capture_output=True, text=True,
-    ).stdout.strip()
-    return float(out) if out else 0.0
+    ).stdout
+    f = dict(line.split("=", 1) for line in out.splitlines() if "=" in line)
+    try:
+        return float(f["duration"]), int(f["nb_streams"])
+    except (KeyError, ValueError):
+        return 0.0, 0
 
 
 def fix(path):
     """Remux next to the original, check it, then swap it in. The original stays if anything fails."""
-    base, ext = os.path.splitext(path)
-    tmp = f"{base}.indexing{ext}"
-    st = os.stat(path)
-    r = subprocess.run(
-        ["ffmpeg", "-nostdin", "-v", "error", "-y", "-i", path, "-map", "0", "-c", "copy",
-         "-movflags", "+faststart", tmp],
-        capture_output=True, text=True,
-    )
+    d, name = os.path.split(path)
+    # A unique dotfile, so concurrent runs (a sweep plus yt-dlp) never share it, it can't clobber a user's
+    # file, and scan() skips it.
+    fd, tmp = tempfile.mkstemp(dir=d or ".", prefix=f".{name}.", suffix=os.path.splitext(name)[1])
+    os.close(fd)
     try:
+        r = subprocess.run(
+            ["ffmpeg", "-nostdin", "-v", "error", "-y", "-i", path, "-map", "0", "-c", "copy",
+             "-movflags", "+faststart", tmp],
+            capture_output=True, text=True,
+        )
         if r.returncode != 0:
             raise RuntimeError(r.stderr.strip().splitlines()[-1] if r.stderr.strip() else "ffmpeg failed")
         if needs_index(tmp):
             raise RuntimeError("output still unindexed")
-        a, b = duration(path), duration(tmp)
+        (a, sa), (b, sb) = probe(path), probe(tmp)
+        if a <= 0 or b <= 0:
+            raise RuntimeError("couldn't read the duration")
         if abs(a - b) > max(2.0, a * 0.01):
             raise RuntimeError(f"duration changed {a:.1f}s -> {b:.1f}s")
+        if sa != sb:
+            raise RuntimeError(f"stream count changed {sa} -> {sb}")
+        shutil.copystat(path, tmp)  # mode and mtime (keeps folder sort order by date)
         os.replace(tmp, path)
-        os.utime(path, (st.st_atime, st.st_mtime))  # keep folder sort order by date
     finally:
         if os.path.exists(tmp):
             os.remove(tmp)
@@ -85,7 +97,7 @@ def scan(root):
     for d, dirs, files in os.walk(root):
         dirs[:] = [x for x in dirs if not x.startswith(".")]
         for name in sorted(files):
-            if name.startswith(".") or ".indexing." in name or os.path.splitext(name)[1].lower() not in EXTS:
+            if name.startswith(".") or os.path.splitext(name)[1].lower() not in EXTS:
                 continue
             p = os.path.join(d, name)
             try:
@@ -104,12 +116,18 @@ def self_test():
             check=True,
         )
         assert needs_index(p), top_boxes(p)
+        bystander = os.path.join(d, "frag.indexing.mp4")  # a user's file with the old temp name
+        open(bystander, "wb").write(b"keep")
+        os.chmod(p, 0o640)
         assert list(scan(d)) == [p]
         assert list(scan(p)) == [p]
         fix(p)
         assert not needs_index(p), top_boxes(p)
         assert top_boxes(p).index("moov") < top_boxes(p).index("mdat")
         assert list(scan(d)) == []
+        assert open(bystander, "rb").read() == b"keep"
+        assert os.stat(p).st_mode & 0o777 == 0o640
+        assert sorted(os.listdir(d)) == ["frag.indexing.mp4", "frag.mp4"], os.listdir(d)
     print("self-test ok")
 
 
