@@ -25,12 +25,10 @@ Status as of 2026-11-11. Items marked **Blocker** will get the app rejected or s
 
 ## Code changes
 
-- [ ] **Blocker — `MANAGE_EXTERNAL_STORAGE` (All files access).** Play only allows this permission for
-  file managers, backup tools, antivirus and the like. A media player will be rejected. Options:
-  - Read USB drives through MediaStore (`READ_MEDIA_VIDEO` / `_AUDIO` / `_IMAGES` on Android 13+),
-    since Google TV indexes removable volumes; or
-  - leave USB out of the Play build (a `play` product flavor without the permission), and keep it
-    for sideloaded builds.
+- [x] ~~**`MANAGE_EXTERNAL_STORAGE` (All files access).**~~ Replaced with `READ_MEDIA_VIDEO` / `_AUDIO` /
+  `_IMAGES` (`READ_EXTERNAL_STORAGE` up to Android 12). Android 11+ serves media files by path through
+  MediaStore, so `UsbBrowser` is unchanged. Tested on the API 34 emulator's removable volume: listing,
+  thumbnails, playback and sidecar `.srt` all work. Still to test: a real USB drive on the Streamer.
 - [ ] **Blocker — signing.** Play rejects APKs and bundles signed with a debug key, and new apps must
   use Play App Signing:
   - Generate an upload key: `keytool -genkeypair -v -keystore ~/.android/nas-player-upload.jks
