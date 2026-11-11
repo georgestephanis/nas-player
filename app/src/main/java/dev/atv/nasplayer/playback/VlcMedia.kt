@@ -12,7 +12,8 @@ object VlcMedia {
 
     fun target(server: ServerConfig, path: String): Target = when (server.type) {
         ServerType.SMB -> {
-            // Credentials go in the URL too, so sidecar subtitle "slaves" can authenticate as well.
+            // Credentials go in the URL too, so sidecar subtitle "slaves" can authenticate as well. Never
+            // log this URL; release builds also run libVLC with --quiet (VlcRuntime).
             val userInfo = if (server.username.isNotBlank()) {
                 Uri.encode(server.username) + ":" + Uri.encode(server.password) + "@"
             } else ""
