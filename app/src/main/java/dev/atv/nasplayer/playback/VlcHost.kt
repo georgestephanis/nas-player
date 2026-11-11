@@ -1,5 +1,7 @@
 package dev.atv.nasplayer.playback
 
+import dev.atv.nasplayer.BuildConfig
+
 import android.content.Context
 import android.net.Uri
 import androidx.compose.foundation.layout.fillMaxSize
@@ -41,7 +43,12 @@ object VlcRuntime {
                 "--avcodec-skiploopfilter=1", // keeps software-decoded HEVC/VC-1 real-time on weak SoCs
                 "--subsdec-encoding=UTF-8",
                 "--freetype-rel-fontsize=16",
-            ),
+            ).apply {
+                // VLC's error messages can include the stream URL, and that carries the SMB/WebDAV
+                // password (VlcMedia). Logcat only reaches adb and bug reports, but keep it out of
+                // release builds anyway.
+                if (!BuildConfig.DEBUG) add("--quiet")
+            },
         ).also { instance = it }
     }
 }
