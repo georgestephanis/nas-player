@@ -111,6 +111,8 @@ fun ServerEditScreen(existingId: String?, prefill: ServerConfig?, onDone: () -> 
             password = password,
             domain = domain.trim(),
             allowInsecureTls = insecureTls,
+            // Keep the remembered certificate only while the setting and the server stay the same.
+            pinnedCert = existing?.takeIf { insecureTls && it.allowInsecureTls && it.host == host.trim() }?.pinnedCert ?: "",
             showInContinueWatching = showInContinueWatching,
         )
     }
@@ -176,6 +178,7 @@ fun ServerEditScreen(existingId: String?, prefill: ServerConfig?, onDone: () -> 
                     selected = false,
                     onClick = { insecureTls = !insecureTls },
                     headlineContent = { Text("Accept self-signed HTTPS certificates") },
+                    supportingContent = { Text("Trusts the first certificate this server presents, and only that one") },
                     trailingContent = { Switch(checked = insecureTls, onCheckedChange = { insecureTls = it }) },
                     modifier = Modifier.widthIn(max = 720.dp),
                 )
