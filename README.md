@@ -67,7 +67,7 @@ Settings → Playback log records every attempt: the container, each track's cod
 | Video & music | ◀ / ▶ | Back 10 s / forward 30 s, with or without the bar showing |
 | | OK | Play / pause |
 | | ▼ | Move onto the bar's buttons (previous, back, play, forward, next, tracks); ◀ ▶ choose, OK selects, ▲ or Back leaves |
-| | ▲ | Audio and subtitle tracks |
+| | Menu / Captions | Audio and subtitle tracks (also the bar's CC button) |
 | Photos | ◀ / ▶ | Previous / next item in the folder |
 | | OK | Start / stop slideshow |
 | | ▼ | Show filename and position |

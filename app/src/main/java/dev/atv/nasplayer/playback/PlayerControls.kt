@@ -228,7 +228,7 @@ internal fun PlayerControls(
                                 if (engineLabel.isNotEmpty()) add(engineLabel)
                                 add(
                                     selected?.let { "${buttons[it].label}   ◀ ▶ choose   OK select   ▲ back" }
-                                        ?: "◀ −10s   ▶ +30s   OK play/pause   ▼ buttons   ▲ audio & subtitles",
+                                        ?: "◀ −10s   ▶ +30s   OK play/pause   ▼ buttons",
                                 )
                             }.joinToString(" · "),
                             color = Color.White.copy(alpha = 0.7f),
