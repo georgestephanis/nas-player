@@ -26,7 +26,8 @@ Status as of 2026-11-11. Items marked **Blocker** will get the app rejected or s
 - [x] ~~**`MANAGE_EXTERNAL_STORAGE` (All files access).**~~ Replaced with `READ_MEDIA_VIDEO` / `_AUDIO` /
   `_IMAGES` (`READ_EXTERNAL_STORAGE` up to Android 12). Android 11+ serves media files by path through
   MediaStore, so `UsbBrowser` is unchanged. Tested on the API 34 emulator's removable volume: listing,
-  thumbnails, playback and sidecar `.srt` all work. Still to test: a real USB drive on the Streamer.
+  thumbnails, playback and sidecar `.srt` all work. Still to test: a real USB drive on the Streamer, and
+  sidecar subtitles on Android 11–12.
 - [ ] **Blocker — signing.** Play rejects APKs and bundles signed with a debug key, and new apps must
   use Play App Signing:
   - Generate an upload key: `keytool -genkeypair -v -keystore ~/.android/nas-player-upload.jks

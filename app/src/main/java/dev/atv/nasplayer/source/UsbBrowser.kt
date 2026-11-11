@@ -10,7 +10,9 @@ import android.net.Uri
 import android.os.Build
 import android.os.Environment
 import android.os.storage.StorageManager
+import android.widget.Toast
 import dev.atv.nasplayer.data.ServerConfig
+import dev.atv.nasplayer.data.Settings
 import dev.atv.nasplayer.data.ServerType
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
@@ -19,7 +21,8 @@ import java.io.IOException
 
 /**
  * Reads a mounted drive by path, which needs [UsbDrives.hasAccess]. On Android 11+ path access goes through
- * MediaStore, so only folders and media files are listed; subtitles and other files are invisible.
+ * MediaStore, so only folders and files of the granted media types are listed, plus subtitles (seen on
+ * API 34; untested on 11 and 12). Other files are invisible.
  */
 class UsbBrowser(override val server: ServerConfig) : MediaBrowser {
 
@@ -76,8 +79,23 @@ object UsbDrives {
         arrayOf(Manifest.permission.READ_EXTERNAL_STORAGE)
     }
 
-    fun hasAccess(): Boolean = permissions.all { app.checkSelfPermission(it) == PackageManager.PERMISSION_GRANTED }
+    /** Any one media type is enough to open a drive; files of types the user declined just don't show. */
+    fun hasAccess(): Boolean = permissions.any { app.checkSelfPermission(it) == PackageManager.PERMISSION_GRANTED }
 
-    /** The user comes back to the home screen and opens the drive again. */
-    fun requestAccess(activity: Activity) = activity.requestPermissions(permissions, 1)
+    /**
+     * The user comes back to the home screen and opens the drive again. Android stops showing the prompt
+     * after two refusals, and then only the app's settings page can grant it.
+     */
+    fun requestAccess(activity: Activity) {
+        val canAsk = !Settings.usbAccessAsked || permissions.any(activity::shouldShowRequestPermissionRationale)
+        if (canAsk) {
+            Settings.usbAccessAsked = true
+            activity.requestPermissions(permissions, 1)
+        } else {
+            Toast.makeText(activity, "Allow Photos and videos under Permissions to read USB drives, then go back", Toast.LENGTH_LONG).show()
+            activity.startActivity(
+                Intent(android.provider.Settings.ACTION_APPLICATION_DETAILS_SETTINGS, Uri.parse("package:${activity.packageName}"))
+            )
+        }
+    }
 }

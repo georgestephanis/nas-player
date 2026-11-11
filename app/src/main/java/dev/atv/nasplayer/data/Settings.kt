@@ -23,6 +23,11 @@ object Settings {
         get() = runCatching { EnginePreference.valueOf(prefs.getString("engine", null)!!) }.getOrDefault(EnginePreference.AUTO)
         set(v) = prefs.edit().putString("engine", v.name).apply()
 
+    /** Whether the USB media permission prompt has been shown, to tell "never asked" from "don't ask again". */
+    var usbAccessAsked: Boolean
+        get() = prefs.getBoolean("usbAccessAsked", false)
+        set(v) = prefs.edit().putBoolean("usbAccessAsked", v).apply()
+
     var autoPlayNext: Boolean
         get() = prefs.getBoolean("autoPlayNext", true)
         set(v) = prefs.edit().putBoolean("autoPlayNext", v).apply()
