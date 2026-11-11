@@ -121,7 +121,7 @@ fun PlayerScreen(server: ServerConfig, request: PlaybackRequest, onExit: () -> U
 
     fun previous() {
         val s = session ?: return
-        if (s.index > 0) begin(s.index - 1, ask = false) else if (!isImage(s.index)) start(s.index, 0, s.engine)
+        if (s.index > 0) begin(s.index - 1, ask = false) else if (!isImage(s.index)) start(s.index, 0, s.engine, s.softwareDecode)
     }
 
     LaunchedEffect(Unit) { begin(request.index, ask = true) }
@@ -157,11 +157,9 @@ fun PlayerScreen(server: ServerConfig, request: PlaybackRequest, onExit: () -> U
                     onEnded = { next(auto = true) },
                     onNext = { next(auto = false) },
                     onPrevious = ::previous,
-                    onFallback = { pos, reason ->
+                    onFallback = { pos, reason, softwareDecode ->
                         Toast.makeText(context, "Switching to VLC engine ($reason)", Toast.LENGTH_SHORT).show()
-                        // Handed over to seek: VLC's hardware decoder on the Streamer wedges (frozen picture,
-                        // audio carries on) when a seek flushes it, so decode these in software.
-                        start(s.index, pos, Engine.VLC, softwareDecode = reason == "not seekable")
+                        start(s.index, pos, Engine.VLC, softwareDecode)
                     },
                     onError = { msg -> error = s to msg },
                     onExit = onExit,
@@ -196,7 +194,7 @@ fun PlayerScreen(server: ServerConfig, request: PlaybackRequest, onExit: () -> U
             ChoicePanel(
                 title = "Can't play ${request.items[failed.index]}",
                 message = msg,
-                primary = "Retry" to { start(failed.index, failed.startMs, failed.engine) },
+                primary = "Retry" to { start(failed.index, failed.startMs, failed.engine, failed.softwareDecode) },
                 secondary = otherLabel to { start(failed.index, failed.startMs, other) },
                 tertiary = if (failed.index + 1 < request.items.size) "Next file" to { begin(failed.index + 1, ask = false) } else null,
                 onBack = onExit,
