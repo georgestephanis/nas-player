@@ -34,3 +34,11 @@ Notes for agents working on this repo. See `README.md` and `docs/ARCHITECTURE.md
 - Index-less files (fragmented MP4 with no `sidx`, etc.) are unseekable in ExoPlayer, and it turns
   every seek into a seek to 0. `ExoHost.seekBy` hands these to VLC at the target position instead.
   Resuming one (`setMediaItem(item, startMs)`) still starts at 0.
+
+## libVLC gotchas
+
+- On the Streamer (MediaTek `c2.mtk.avc.decoder`), VLC's hardware decoding wedges when a seek flushes
+  the decoder. The picture freezes while audio carries on, and logcat shows `client does not own the
+  buffer`, then repeated `buffer deadlock prevented`. Sessions handed to VLC because of a seek use
+  `PlaybackSession.softwareDecode`. Other VLC sessions still decode in hardware and may freeze the
+  same way when seeking.
