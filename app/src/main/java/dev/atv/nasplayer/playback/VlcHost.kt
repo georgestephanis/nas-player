@@ -140,6 +140,9 @@ fun VlcHost(
         target.options.forEach(media::addOption)
         media.addOption(":network-caching=3000")
         media.setHWDecoderEnabled(!session.softwareDecode, false)
+        // These files have no index, so a seek lands between keyframes; drop the frames decoded from
+        // missing references (grey smear) and hold the last good one until the next keyframe.
+        if (session.softwareDecode) media.addOption(":no-avcodec-corrupted")
         if (session.startMs > 0) media.addOption(":start-time=${session.startMs / 1000.0}")
         Subtitles.sidecarsFor(name, request.siblings).forEach { sub ->
             val url = VlcMedia.target(server, joinPath(request.folder, sub.name)).url

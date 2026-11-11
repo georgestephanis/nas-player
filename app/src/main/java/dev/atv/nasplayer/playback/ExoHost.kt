@@ -95,6 +95,14 @@ fun ExoHost(
         }
         val listener = object : Player.Listener {
             override fun onPlaybackStateChanged(state: Int) {
+                if (state == Player.STATE_READY && !everReady && session.startMs > 0 && !handedOff &&
+                    !player.isCurrentMediaItemSeekable
+                ) {
+                    // Resuming a file ExoPlayer can't seek would silently start it from 0.
+                    handedOff = true
+                    recorder.finish(Outcome.FELL_BACK, "not seekable in ExoPlayer")
+                    onFallback(session.startMs, "not seekable")
+                }
                 if (state == Player.STATE_READY) everReady = true
                 if (state == Player.STATE_BUFFERING && everReady) recorder.rebuffers++
                 if (state == Player.STATE_ENDED && !handedOff) {
