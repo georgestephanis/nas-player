@@ -28,6 +28,9 @@ Status as of 2026-11-11. Items marked **Blocker** will get the app rejected or s
   MediaStore, so `UsbBrowser` is unchanged. Tested on the API 34 emulator's removable volume: listing,
   thumbnails, playback and sidecar `.srt` all work. Still to test: a real USB drive on the Streamer, and
   sidecar subtitles on Android 11–12.
+- [x] ~~**Trust-all TLS for WebDAV.**~~ "Accept self-signed HTTPS certificates" used to accept any
+  certificate, which Play's security scan flags. It now pins the first certificate the server presents
+  and refuses any other.
 - [ ] **Blocker — signing.** Play rejects APKs and bundles signed with a debug key, and new apps must
   use Play App Signing:
   - Generate an upload key: `keytool -genkeypair -v -keystore ~/.android/nas-player-upload.jks
@@ -63,6 +66,10 @@ Status as of 2026-11-11. Items marked **Blocker** will get the app rejected or s
   Give them instructions plus a public test source: for example a WebDAV server on a small VPS with a
   few freely licensed clips (Blender open movies such as *Big Buck Bunny* or *Sintel*), with test
   credentials. Without this, expect "unable to review" rejections.
+- [ ] **Photo and video permissions declaration.** `READ_MEDIA_IMAGES` / `READ_MEDIA_VIDEO` need a
+  declaration form explaining why the app needs broad access. Answer: a media player that browses and
+  plays the user's own files on USB drives by folder, where the system photo picker can't browse
+  folders or play files in place.
 - [ ] **Content rating questionnaire.** Answer as a general media player that plays the user's own
   files, with no user-to-user sharing.
 - [ ] **Target audience.** 13+ or 18+. Don't select children's age groups, which bring in the

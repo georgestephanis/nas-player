@@ -51,6 +51,12 @@ object ServerRepository {
         persist(list)
     }
 
+    /** Records the first self-signed certificate a saved server presents. */
+    @Synchronized
+    fun pinCertificate(id: String, sha256: String) {
+        _servers.value.firstOrNull { it.id == id && it.pinnedCert.isEmpty() }?.let { save(it.copy(pinnedCert = sha256)) }
+    }
+
     fun delete(id: String) {
         persist(_servers.value.filterNot { it.id == id })
         ResumeStore.clearServer(id)
@@ -77,6 +83,7 @@ object ServerRepository {
                 put("password", storedPassword(s.password, unreadPasswords[s.id], SecretBox::encrypt))
                 put("domain", s.domain)
                 put("allowInsecureTls", s.allowInsecureTls)
+                put("pinnedCert", s.pinnedCert)
                 put("showInContinueWatching", s.showInContinueWatching)
             })
             if (s.password.isNotEmpty()) unreadPasswords.remove(s.id)
@@ -103,6 +110,7 @@ object ServerRepository {
                     password = SecretBox.decrypt(stored) ?: run { unreadPasswords[id] = stored; "" },
                     domain = o.optString("domain"),
                     allowInsecureTls = o.optBoolean("allowInsecureTls"),
+                    pinnedCert = o.optString("pinnedCert"),
                     showInContinueWatching = o.optBoolean("showInContinueWatching", true),
                 )
             }

@@ -26,6 +26,8 @@ data class ServerConfig(
     val password: String = "",
     val domain: String = "",
     val allowInsecureTls: Boolean = false,
+    /** With [allowInsecureTls]: SHA-256 of the certificate accepted on first connection; any other is refused. */
+    val pinnedCert: String = "",
     val showInContinueWatching: Boolean = true,
 ) {
     val subtitle: String

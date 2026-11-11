@@ -4,6 +4,7 @@ import android.annotation.SuppressLint
 import android.net.Uri
 import android.util.Xml
 import dev.atv.nasplayer.data.ServerConfig
+import dev.atv.nasplayer.data.ServerRepository
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import okhttp3.Credentials
@@ -16,14 +17,19 @@ import okhttp3.RequestBody.Companion.toRequestBody
 import org.xmlpull.v1.XmlPullParser
 import java.io.IOException
 import java.net.URLDecoder
-import java.security.SecureRandom
+import java.security.KeyStore
+import java.security.MessageDigest
+import java.security.cert.CertificateException
 import java.security.cert.X509Certificate
 import java.text.SimpleDateFormat
 import java.util.Locale
 import java.util.concurrent.ConcurrentHashMap
 import java.util.concurrent.TimeUnit
+import java.util.concurrent.atomic.AtomicReference
+import javax.net.ssl.HttpsURLConnection
 import javax.net.ssl.SSLContext
 import javax.net.ssl.TrustManager
+import javax.net.ssl.TrustManagerFactory
 import javax.net.ssl.X509TrustManager
 
 class WebDavBrowser(override val server: ServerConfig) : MediaBrowser {
@@ -149,21 +155,48 @@ class WebDavBrowser(override val server: ServerConfig) : MediaBrowser {
                     chain.proceed(chain.request().newBuilder().header("Authorization", creds).build())
                 }
             }
-            if (server.allowInsecureTls) trustAll(builder)
+            if (server.allowInsecureTls) pinSelfSigned(builder, server)
             return builder.build().also { clients[server.id] = server to it }
         }
 
-        @SuppressLint("CustomX509TrustManager", "TrustAllX509TrustManager", "BadHostnameVerifier")
-        private fun trustAll(builder: OkHttpClient.Builder) {
-            // Opt-in per server, for NAS boxes using self-signed certificates on the LAN.
+        /**
+         * Opt-in per server, for NAS boxes with self-signed certificates on the LAN. A certificate the
+         * system trusts passes as usual. Otherwise the first one seen is remembered (trust on first use,
+         * as SSH does) and from then on only that exact certificate is accepted, for any host name
+         * (self-signed NAS certificates rarely match the IP address they're reached on).
+         */
+        @SuppressLint("CustomX509TrustManager")
+        private fun pinSelfSigned(builder: OkHttpClient.Builder, server: ServerConfig) {
+            val system = TrustManagerFactory.getInstance(TrustManagerFactory.getDefaultAlgorithm())
+                .apply { init(null as KeyStore?) }.trustManagers.filterIsInstance<X509TrustManager>().first()
+            val pin = AtomicReference(server.pinnedCert)
             val tm = object : X509TrustManager {
-                override fun checkClientTrusted(chain: Array<X509Certificate>, authType: String) {}
-                override fun checkServerTrusted(chain: Array<X509Certificate>, authType: String) {}
-                override fun getAcceptedIssuers(): Array<X509Certificate> = emptyArray()
+                override fun checkClientTrusted(chain: Array<X509Certificate>, authType: String) =
+                    system.checkClientTrusted(chain, authType)
+                override fun checkServerTrusted(chain: Array<X509Certificate>, authType: String) {
+                    try {
+                        return system.checkServerTrusted(chain, authType)
+                    } catch (_: CertificateException) {
+                    }
+                    val seen = sha256(chain[0])
+                    if (pin.compareAndSet("", seen)) ServerRepository.pinCertificate(server.id, seen)
+                    if (pin.get() != seen) throw CertificateException(
+                        "The server's certificate has changed. If you replaced it, turn off \"Accept self-signed " +
+                            "HTTPS certificates\" for this source, save, then turn it on again."
+                    )
+                }
+                override fun getAcceptedIssuers(): Array<X509Certificate> = system.acceptedIssuers
             }
-            val ctx = SSLContext.getInstance("TLS").apply { init(null, arrayOf<TrustManager>(tm), SecureRandom()) }
-            builder.sslSocketFactory(ctx.socketFactory, tm).hostnameVerifier { _, _ -> true }
+            val ctx = SSLContext.getInstance("TLS").apply { init(null, arrayOf<TrustManager>(tm), null) }
+            val hostnames = HttpsURLConnection.getDefaultHostnameVerifier()
+            builder.sslSocketFactory(ctx.socketFactory, tm).hostnameVerifier { host, session ->
+                hostnames.verify(host, session) ||
+                    (session.peerCertificates.firstOrNull() as? X509Certificate)?.let(::sha256) == pin.get()
+            }
         }
+
+        private fun sha256(cert: X509Certificate): String =
+            MessageDigest.getInstance("SHA-256").digest(cert.encoded).joinToString("") { "%02x".format(it) }
 
         private fun decodedPath(url: HttpUrl) = "/" + url.pathSegments.joinToString("/")
 
