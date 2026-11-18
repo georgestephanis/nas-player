@@ -25,7 +25,7 @@ import dev.atv.nasplayer.data.Settings
 import dev.atv.nasplayer.playback.EnginePreference
 
 @Composable
-fun SettingsScreen(onOpenLog: () -> Unit) {
+fun SettingsScreen(onOpenLog: () -> Unit, onOpenAbout: () -> Unit) {
     var engine by remember { mutableStateOf(Settings.enginePreference) }
     var autoNext by remember { mutableStateOf(Settings.autoPlayNext) }
     var showAll by remember { mutableStateOf(Settings.showAllFiles) }
@@ -170,11 +170,12 @@ fun SettingsScreen(onOpenLog: () -> Unit) {
             )
         }
         item {
-            Text(
-                "NAS Player ${BuildConfig.VERSION_NAME} · GPL-3.0-or-later\n" +
-                    "Uses Media3/ExoPlayer (Apache-2.0), Jellyfin FFmpeg decoder (GPL-3.0), libVLC (LGPL-2.1), smbj (Apache-2.0), Coil (Apache-2.0).",
-                style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.5f),
+            ListItem(
+                selected = false,
+                onClick = onOpenAbout,
+                headlineContent = { Text("About & licences") },
+                supportingContent = { Text("NAS Player ${BuildConfig.VERSION_NAME} · free software (GPL-3.0-or-later) · source at github.com/georgestephanis/nas-player") },
+                modifier = w,
             )
         }
     }

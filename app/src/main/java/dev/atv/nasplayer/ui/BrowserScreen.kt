@@ -110,6 +110,8 @@ fun BrowserScreen(
         state = ListState.Loading
         state = try {
             ListState.Loaded(browser.list(path))
+        } catch (e: kotlinx.coroutines.CancellationException) {
+            throw e // left this folder mid-load; don't overwrite the next folder's state with a fake error
         } catch (e: Exception) {
             ListState.Failed(friendlyError(e))
         }
@@ -333,10 +335,12 @@ private fun FileMenu(
                 if (resume != null && resume.positionMs > 0) {
                     ListItem(selected = false, onClick = onStartOver, headlineContent = { Text("Play from the beginning") })
                 }
-                ListItem(selected = false, onClick = { onPlay(Engine.VLC) }, headlineContent = { Text("Play with VLC engine") },
-                    supportingContent = { Text("Widest format support; software decoding") })
-                ListItem(selected = false, onClick = { onPlay(Engine.EXO) }, headlineContent = { Text("Play with ExoPlayer engine") },
-                    supportingContent = { Text("Hardware decoding, HDR, audio passthrough") })
+                if (dev.atv.nasplayer.source.MediaTypes.kindOf(entry.name) != dev.atv.nasplayer.source.MediaKind.IMAGE) { // photos have no engine choice
+                    ListItem(selected = false, onClick = { onPlay(Engine.VLC) }, headlineContent = { Text("Play with VLC engine") },
+                        supportingContent = { Text("Widest format support; software decoding") })
+                    ListItem(selected = false, onClick = { onPlay(Engine.EXO) }, headlineContent = { Text("Play with ExoPlayer engine") },
+                        supportingContent = { Text("Hardware decoding, HDR, audio passthrough") })
+                }
                 if (resume?.watched == true) {
                     ListItem(selected = false, onClick = { ResumeStore.forget(serverId, entry.path); onDismiss() },
                         headlineContent = { Text("Mark as unwatched") })

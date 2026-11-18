@@ -62,15 +62,15 @@ Status as of 2026-11-18. Items marked **Blocker** will get the app rejected or s
   once uploaded); sideload builds stay `dev.atv.nasplayer`. They are separate apps, so both can be
   installed on one TV, and sideloaded installs keep their sources and resume positions.
 - [x] **versionCode / versionName.** `versionCode` goes up by one for every Play upload. `versionName`
-  is semantic (`1.0.1`) and matches the GitHub tag. Currently 2 / 1.0.1.
+  is semantic (`1.0.1`) and matches the GitHub tag. Currently 3 / 1.0.2.
 - [x] **Target API.** `targetSdk = 36` was accepted.
 - [x] **Landscape.** `screenOrientation="landscape"` implies a required
   `android.hardware.screen.landscape`, which Play's pre-review check flags because it excludes TVs. The
   manifest declares that feature as `required="false"`.
-- [ ] **Licences in the app.** The app is GPL-3.0 and bundles a GPL FFmpeg build (Jellyfin's
-  media3-ffmpeg-decoder) and LGPL libVLC. Add an About screen with the licence, a link to the source
-  (the repo is public: github.com/georgestephanis/nas-player) and the third-party notices from the
-  README.
+- [x] **Licences in the app.** The app is GPL-3.0 and bundles a GPL FFmpeg build (Jellyfin's
+  media3-ffmpeg-decoder) and LGPL libVLC. *Settings → About & licences* shows the licence, the source
+  link, the third-party list and the full licence texts (`res/raw/licenses.txt`). Update that file
+  when a dependency is added.
 
 ## App content forms in Play Console (Policy → App content)
 
@@ -98,14 +98,15 @@ All of these are complete; App content shows nothing needing attention.
 
 - [x] Android TV form factor added under *Test and release → Advanced settings → Form factors*. TV
   builds get an extra quality review that can take longer and is easy to fail.
-- [ ] The TV quality checklist that matters here:
+- [x] The TV quality checklist, walked through on the emulator for 1.0.2:
   - LEANBACK_LAUNCHER and banner ✓
   - no required touchscreen ✓
   - landscape not required ✓
-  - everything reachable by D-pad, with a visible focus everywhere
-  - Back always works and exits from the home screen
-  - no text cut off at 1080p or 4K
-  - video plays fullscreen with no letterbox bugs
+  - everything reachable by D-pad, with a visible focus everywhere ✓ (the text-field dialogs used to
+    trap focus once the keyboard closed; fixed)
+  - Back always works and exits from the home screen ✓
+  - no text cut off at 1080p ✓ (layout is in dp, so 4K looks the same)
+  - video plays fullscreen with no letterbox bugs ✓
 - [ ] Test the Play-signed build from the internal testing track on the Streamer (see the signing note
   above about sideloaded installs).
 

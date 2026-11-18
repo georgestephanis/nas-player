@@ -437,6 +437,7 @@ private fun EditDialog(
 ) {
     var text by remember { mutableStateOf(androidx.compose.ui.text.input.TextFieldValue(initial, androidx.compose.ui.text.TextRange(initial.length))) }
     val focus = remember { FocusRequester() }
+    val okFocus = remember { FocusRequester() }
     androidx.compose.ui.window.Dialog(onDismissRequest = onDismiss) {
         androidx.tv.material3.Surface(shape = androidx.compose.foundation.shape.RoundedCornerShape(16.dp)) {
             Column(Modifier.padding(24.dp).widthIn(min = 480.dp, max = 640.dp)) {
@@ -457,11 +458,15 @@ private fun EditDialog(
                         // Hardware/remote Enter confirms too.
                         if (ev.type == androidx.compose.ui.input.key.KeyEventType.KeyUp &&
                             (ev.key == androidx.compose.ui.input.key.Key.Enter || ev.key == androidx.compose.ui.input.key.Key.NumPadEnter)
-                        ) { onConfirm(text.text); true } else false
+                        ) { onConfirm(text.text); true }
+                        // The text field eats D-pad Down (cursor movement), which traps focus once the keyboard is closed.
+                        else if (ev.type == androidx.compose.ui.input.key.KeyEventType.KeyDown && ev.key == androidx.compose.ui.input.key.Key.DirectionDown) {
+                            runCatching { okFocus.requestFocus() }.isSuccess
+                        } else false
                     },
                 )
                 Row(horizontalArrangement = Arrangement.spacedBy(12.dp), modifier = Modifier.padding(top = 16.dp)) {
-                    Button(onClick = { onConfirm(text.text) }) { Text("OK") }
+                    Button(onClick = { onConfirm(text.text) }, modifier = Modifier.focusRequester(okFocus)) { Text("OK") }
                     OutlinedButton(onClick = onDismiss) { Text("Cancel") }
                 }
             }
