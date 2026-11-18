@@ -29,13 +29,18 @@ android {
             keyAlias = "androiddebugkey"
             keyPassword = "android"
         }
-        // Play upload key (backed up in 1Password). The password comes from the environment, never a file:
-        //   read -s NASPLAYER_UPLOAD_PASSWORD && export NASPLAYER_UPLOAD_PASSWORD && ./gradlew bundlePlay
+        // Play upload key (backed up in 1Password). Its password comes from the macOS Keychain item
+        // "nas-player-upload" (or NASPLAYER_UPLOAD_PASSWORD), never a file, and only when a Play build runs.
+        val uploadPassword = if (gradle.startParameter.taskNames.none { "Play" in it }) null
+            else System.getenv("NASPLAYER_UPLOAD_PASSWORD") ?: runCatching {
+                providers.exec { commandLine("security", "find-generic-password", "-s", "nas-player-upload", "-w") }
+                    .standardOutput.asText.get().trim()
+            }.getOrNull()
         create("upload") {
             storeFile = File(System.getProperty("user.home"), ".android/nas-player-upload.jks")
-            storePassword = System.getenv("NASPLAYER_UPLOAD_PASSWORD")
+            storePassword = uploadPassword
             keyAlias = "upload"
-            keyPassword = System.getenv("NASPLAYER_UPLOAD_PASSWORD")
+            keyPassword = uploadPassword
         }
     }
 
@@ -124,8 +129,8 @@ dependencies {
 
 tasks.matching { it.name == "validateSigningPlay" }.configureEach {
     doFirst {
-        check(!System.getenv("NASPLAYER_UPLOAD_PASSWORD").isNullOrEmpty()) {
-            "Set the upload key password first: read -s NASPLAYER_UPLOAD_PASSWORD && export NASPLAYER_UPLOAD_PASSWORD"
+        check(android.signingConfigs.getByName("upload").storePassword != null) {
+            "No upload key password. Add it once: security add-generic-password -a \"\$USER\" -s nas-player-upload -w"
         }
     }
 }

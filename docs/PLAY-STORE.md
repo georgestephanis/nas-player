@@ -37,8 +37,9 @@ Status as of 2026-11-11. Items marked **Blocker** will get the app rejected or s
     `keytool -genkeypair -v -keystore ~/.android/nas-player-upload.jks -alias upload -keyalg RSA
     -keysize 4096 -validity 10000`. It and its password are backed up in 1Password. Losing it means
     asking Google to reset it.
-  - Build the App Bundle with
-    `read -s NASPLAYER_UPLOAD_PASSWORD && export NASPLAYER_UPLOAD_PASSWORD && ./gradlew bundlePlay`.
+  - Its password is in the macOS Keychain as `nas-player-upload`
+    (`security add-generic-password -a "$USER" -s nas-player-upload -w` adds it). Build the App
+    Bundle with `./gradlew bundlePlay`.
     The output is `app/build/outputs/bundle/play/app-play.aab`. Play makes the per-ABI APKs itself;
     the `splits { abi }` block only affects sideload APKs.
 - [ ] **Sideloaded vs Play installs.** The Play-installed app will be signed with Google's key, not
