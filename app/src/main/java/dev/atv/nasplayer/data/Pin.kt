@@ -27,7 +27,8 @@ object Pin {
     fun unlock(id: String) { unlocked = unlocked + id }
 
     /** Seconds left before another try is allowed, or 0. */
-    fun waitSeconds(now: Long = System.currentTimeMillis()): Long = ((Settings.pinLockedUntil - now + 999) / 1000).coerceAtLeast(0)
+    // Capped, so a clock set back after a lockout starts can't stretch it.
+    fun waitSeconds(now: Long = System.currentTimeMillis()): Long = ((Settings.pinLockedUntil - now + 999) / 1000).coerceIn(0, LOCKOUT_MS / 1000)
 
     fun check(server: ServerConfig, pin: String): Boolean {
         if (waitSeconds() > 0) return false

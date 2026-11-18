@@ -205,6 +205,7 @@ fun ServerEditScreen(existingId: String?, prefill: ServerConfig?, onDone: () -> 
         }
         // Without this on the last row, Down from a wide row lands on Test connection or Remove.
         val lastRow = Modifier.widthIn(max = 720.dp).focusProperties { down = saveFocus }
+        val pinRow = remember { FocusRequester() }
         ListItem(
             selected = false,
             onClick = { hidden = !hidden },
@@ -219,12 +220,13 @@ fun ServerEditScreen(existingId: String?, prefill: ServerConfig?, onDone: () -> 
             headlineContent = { Text(if (pinHash.isEmpty()) "Set a PIN" else "Change PIN") },
             supportingContent = { Text("Asks for it before opening or editing this source, and keeps it out of Continue watching until then. Takes effect when you save.") },
             trailingContent = { Text(if (pinHash.isEmpty()) "Off" else "On") },
-            modifier = Modifier.widthIn(max = 720.dp),
+            modifier = Modifier.widthIn(max = 720.dp).focusRequester(pinRow),
         )
         if (pinHash.isNotEmpty()) {
             ListItem(
                 selected = false,
-                onClick = { pinHash = "" },
+                // The row goes away, so move focus off it first.
+                onClick = { runCatching { pinRow.requestFocus() }; pinHash = "" },
                 headlineContent = { Text("Remove PIN") },
                 modifier = Modifier.widthIn(max = 720.dp),
             )
