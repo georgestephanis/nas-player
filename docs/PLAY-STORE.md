@@ -110,3 +110,15 @@ Status as of 2026-11-11. Items marked **Blocker** will get the app rejected or s
 3. [ ] Apply for production access, answering the questions about the test.
 4. [ ] Production: a staged rollout (e.g. 20%) is optional for a new app, but harmless.
 5. [ ] Afterwards, watch *Android vitals* for crashes and ANRs.
+
+## Cutting a release
+
+1. Raise `versionCode` (by one) and `versionName` in `app/build.gradle.kts`, merge to `main`.
+2. `./gradlew bundlePlay assemblePlay`. Upload `app/build/outputs/bundle/play/app-play.aab` to Play.
+3. Tag and publish the same commit on GitHub with the APKs (all signed with the upload key):
+   ```bash
+   v=1.0; d=$(mktemp -d)
+   for a in arm64-v8a armeabi-v7a x86_64 universal; do
+     cp app/build/outputs/apk/play/app-$a-play.apk "$d/NAS-Player-$v-$a.apk"; done
+   gh release create v$v "$d"/*.apk --target main --title "NAS Player $v" --notes-file notes.md
+   ```

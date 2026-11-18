@@ -1,0 +1,5 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Sideload builds (dev.atv.nasplayer) can sit beside the Play build on one TV; tell them apart. -->
+    <string name="app_name">NAS Player (dev)</string>
+</resources>
