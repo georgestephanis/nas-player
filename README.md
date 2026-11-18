@@ -3,7 +3,7 @@
 An Android TV / Google TV app for watching video, listening to music and viewing photos straight from a NAS over SMB (Windows / Samba / TrueNAS / Synology shares) or WebDAV. It also reads USB drives. It has no cloud, no accounts, no media scanning and no metadata scraping: you browse folders and press play, and everything plays inside the app.
 
 <p align="center">
-  <img src="docs/screenshots/01-home.png" alt="Home screen with Continue watching, saved sources and servers found on the network" width="80%">
+  <img src="docs/screenshots/01-home.png" alt="Home screen with Continue watching and saved sources" width="80%">
 </p>
 
 | | |
@@ -16,12 +16,16 @@ An Android TV / Google TV app for watching video, listening to music and viewing
 | Photo folders show previews | Photos open in the built-in viewer |
 | ![Sort menu](docs/screenshots/08-sort.png) | ![Resume or start over prompt](docs/screenshots/09-resume.png) |
 | Sort any folder | Pick up where you left off |
-| ![Settings screen with the List size option selected](docs/screenshots/10-settings.png) | ![Playback log listing codecs and decoders per file](docs/screenshots/11-log.png) |
+| ![Settings screen with player engine and resume options](docs/screenshots/10-settings.png) | ![Playback log listing codecs and decoders per file](docs/screenshots/11-log.png) |
 | Settings | Playback log for diagnosing codec gaps |
-| ![Movie folder at the Extra large list size](docs/screenshots/12-list-size.png) | ![Home screen with a USB drive under Local drives](docs/screenshots/13-usb.png) |
-| List size set to Extra large | USB drives appear under Local drives |
+| ![Video player with the control bar showing](docs/screenshots/15-player.png) | ![Movie folder at the Extra large list size](docs/screenshots/12-list-size.png) |
+| The player bar | List size set to Extra large |
+| ![Sources row with a PIN-locked source, a More tile for hidden sources, and a USB drive under Local drives](docs/screenshots/13-sources.png) | ![PIN keypad asking for a source's PIN](docs/screenshots/16-pin.png) |
+| Lock a source with a PIN, hide others behind More; USB drives appear under Local drives | Enter the PIN with the keypad or the remote's number keys |
+| ![Source options: hide, PIN, Remember where I left off, Show in Continue watching](docs/screenshots/14-source-options.png) | |
+| Per-source options | |
 
-*Screenshots use a generated demo library (original artwork, test tones and clips). They come from a Google TV Streamer, except the folder lists, sort menu, Settings and USB shots, which come from the Android TV emulator.*
+*Screenshots use a generated demo library (original artwork, test tones and clips), captured on the Android TV emulator.*
 
 ## Features
 

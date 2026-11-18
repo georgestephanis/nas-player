@@ -83,9 +83,8 @@ Status as of 2026-11-11. Items marked **Blocker** will get the app rejected or s
 - [ ] App icon, 512×512 PNG (the in-app icon is a vector drawable; export it).
 - [ ] Feature graphic, 1024×500.
 - [ ] **TV banner, 1280×720** (the in-app banner is 640×360; re-export it at the larger size).
-- [ ] **TV screenshots, 1920×1080**, at least one; aim for 4–6: home, a folder, the player bar,
-  music with cover art, photos, settings. Use only freely licensed sample media and neutral folder
-  and server names in every screenshot.
+- [x] **TV screenshots, 1920×1080**, at least one; aim for 4–6. `docs/screenshots/` has 16 from a
+  generated demo library; good picks are 01-home, 02-movies, 15-player, 05-music, 06-viewer, 13-sources.
 - [ ] Category: Video Players & Editors. Contact email: required, and shown publicly.
 
 ## Android TV specifics
