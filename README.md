@@ -147,4 +147,4 @@ More on the code layout and device testing: [docs/ARCHITECTURE.md](docs/ARCHITEC
 
 GPL-3.0-or-later. See [LICENSE](LICENSE).
 
-Bundled components: AndroidX Media3 / ExoPlayer (Apache-2.0), Jellyfin media3-ffmpeg-decoder (GPL-3.0; FFmpeg built with GPL components), libVLC (LGPL-2.1+), smbj and smbj-rpc (Apache-2.0), Coil (Apache-2.0), Bouncy Castle (MIT), OkHttp (Apache-2.0). The banner uses the Inter typeface (SIL OFL 1.1).
+Bundled components: AndroidX Media3 / ExoPlayer, AndroidX, Jetpack Compose, Kotlin (Apache-2.0), Jellyfin media3-ffmpeg-decoder (GPL-3.0; FFmpeg built with GPL components), libVLC (LGPL-2.1+), smbj and smbj-rpc (Apache-2.0), Coil (Apache-2.0), OkHttp and Okio (Apache-2.0), Bouncy Castle (MIT), SLF4J (MIT). The banner uses the Inter typeface (SIL OFL 1.1). The app shows these notices and the full licence texts under Settings → About & licences ([`licenses.txt`](app/src/main/res/raw/licenses.txt)).
