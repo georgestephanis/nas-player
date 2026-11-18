@@ -101,7 +101,7 @@ fun PlayerScreen(server: ServerConfig, request: PlaybackRequest, onExit: () -> U
 
     fun begin(i: Int, ask: Boolean) {
         if (isImage(i)) { start(i, 0); return }
-        val saved = ResumeStore.get(server.id, pathOf(i))?.takeIf { !it.watched && it.positionMs > 15_000 }
+        val saved = ResumeStore.get(server.id, pathOf(i))?.takeIf { server.remembersPositions && !it.watched && it.positionMs > 15_000 }
         when {
             saved == null -> start(i, 0)
             ask -> { session = null; resumePrompt = i to saved }
@@ -130,12 +130,10 @@ fun PlayerScreen(server: ServerConfig, request: PlaybackRequest, onExit: () -> U
         val s = session
         if (s != null && error == null) {
             val onProgress: (Long, Long) -> Unit = { pos, dur ->
-                ResumeStore.save(server.id, request.folder, request.items[s.index], pos, dur)
+                if (server.remembersPositions) ResumeStore.save(server.id, request.folder, request.items[s.index], pos, dur)
             }
-            // A session is one mounted player: without the key, the next file reuses the old AndroidView,
-            // which stays bound to the released player and never gets the new one.
-            key(s) { when {
-                isImage(s.index) -> dev.atv.nasplayer.playback.ImageHost(
+            // Photos share one mounted viewer, so the last photo stays up while the next fades in.
+            if (isImage(s.index)) dev.atv.nasplayer.playback.ImageHost(
                     server = server,
                     request = request,
                     session = s,
@@ -149,6 +147,9 @@ fun PlayerScreen(server: ServerConfig, request: PlaybackRequest, onExit: () -> U
                     },
                     onExit = onExit,
                 )
+            // A session is one mounted player: without the key, the next file reuses the old AndroidView,
+            // which stays bound to the released player and never gets the new one.
+            else key(s) { when {
                 s.engine == Engine.EXO -> ExoHost(
                     server = server,
                     request = request,

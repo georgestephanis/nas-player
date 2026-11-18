@@ -12,6 +12,7 @@ import androidx.compose.runtime.mutableStateListOf
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
 import androidx.tv.material3.MaterialTheme
+import dev.atv.nasplayer.data.Pin
 import dev.atv.nasplayer.data.ServerConfig
 import dev.atv.nasplayer.ui.BrowserScreen
 import dev.atv.nasplayer.ui.HomeScreen
@@ -47,11 +48,13 @@ private fun App(onExit: () -> Unit) {
     fun pop() { if (stack.size > 1) stack.removeAt(stack.lastIndex) else onExit() }
 
     BackHandler(enabled = stack.size > 1) { pop() }
+    val gate = remember { dev.atv.nasplayer.ui.PinGate() }
+    gate.Prompt()
 
     when (val screen = stack.last()) {
         Screen.Home -> HomeScreen(
-            onOpenServer = { push(Screen.Browse(it.id, null)) },
-            onEditServer = { push(Screen.Edit(it.id, null)) },
+            onOpenServer = { gate.run(Pin.needed(it)) { push(Screen.Browse(it.id, null)) } },
+            onEditServer = { gate.run(Pin.needed(it)) { push(Screen.Edit(it.id, null)) } },
             onAddServer = { prefill -> push(Screen.Edit(null, prefill)) },
             onSettings = { push(Screen.Settings) },
         )

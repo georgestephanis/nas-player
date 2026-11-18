@@ -84,7 +84,11 @@ object ServerRepository {
                 put("domain", s.domain)
                 put("allowInsecureTls", s.allowInsecureTls)
                 put("pinnedCert", s.pinnedCert)
-                put("showInContinueWatching", s.showInContinueWatching)
+                // New keys, absent when following the default; the old always-written key reads as below.
+                s.showInContinueWatching?.let { put("continueWatching", it) }
+                s.rememberPositions?.let { put("rememberPositions", it) }
+                put("hidden", s.hidden)
+                put("locked", s.locked)
             })
             if (s.password.isNotEmpty()) unreadPasswords.remove(s.id)
         }
@@ -111,7 +115,15 @@ object ServerRepository {
                     domain = o.optString("domain"),
                     allowInsecureTls = o.optBoolean("allowInsecureTls"),
                     pinnedCert = o.optString("pinnedCert"),
-                    showInContinueWatching = o.optBoolean("showInContinueWatching", true),
+                    showInContinueWatching = when {
+                        o.has("continueWatching") -> o.getBoolean("continueWatching")
+                        // Older saves always wrote this; true was the default, so only false is an override.
+                        !o.optBoolean("showInContinueWatching", true) -> false
+                        else -> null
+                    },
+                    rememberPositions = if (o.has("rememberPositions")) o.getBoolean("rememberPositions") else null,
+                    hidden = o.optBoolean("hidden"),
+                    locked = o.optBoolean("locked"),
                 )
             }
         } catch (e: Exception) {

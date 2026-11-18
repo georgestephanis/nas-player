@@ -54,6 +54,21 @@ object Settings {
         get() = prefs.getInt("slideshowSeconds", 6)
         set(v) = prefs.edit().putInt("slideshowSeconds", v).apply()
 
+    /** Default for sources that don't override [ServerConfig.rememberPositions]. */
+    var rememberPositions: Boolean
+        get() = prefs.getBoolean("rememberPositions", true)
+        set(v) = prefs.edit().putBoolean("rememberPositions", v).apply()
+
+    /** Default for sources that don't override [ServerConfig.showInContinueWatching]. */
+    var showInContinueWatching: Boolean
+        get() = prefs.getBoolean("showInContinueWatching", true)
+        set(v) = prefs.edit().putBoolean("showInContinueWatching", v).apply()
+
+    /** "salt:sha256" of the PIN; empty when none is set. Use [Pin], not this. */
+    var pinHash: String
+        get() = prefs.getString("pinHash", "").orEmpty()
+        set(v) = prefs.edit().putString("pinHash", v).apply()
+
     var showAllFiles: Boolean
         get() = prefs.getBoolean("showAllFiles", false)
         set(v) = prefs.edit().putBoolean("showAllFiles", v).apply()

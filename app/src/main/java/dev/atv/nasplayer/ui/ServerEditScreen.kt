@@ -44,9 +44,12 @@ import androidx.tv.material3.MaterialTheme
 import androidx.tv.material3.OutlinedButton
 import androidx.tv.material3.Switch
 import androidx.tv.material3.Text
+import dev.atv.nasplayer.data.Pin
+import dev.atv.nasplayer.data.ResumeStore
 import dev.atv.nasplayer.data.ServerConfig
 import dev.atv.nasplayer.data.ServerRepository
 import dev.atv.nasplayer.data.ServerType
+import dev.atv.nasplayer.data.Settings
 import dev.atv.nasplayer.data.hostSuggestions
 import dev.atv.nasplayer.data.knownPaths
 import dev.atv.nasplayer.data.parentPath
@@ -75,7 +78,11 @@ fun ServerEditScreen(existingId: String?, prefill: ServerConfig?, onDone: () -> 
     var password by remember { mutableStateOf(initial?.password ?: "") }
     var domain by remember { mutableStateOf(initial?.domain ?: "") }
     var insecureTls by remember { mutableStateOf(initial?.allowInsecureTls ?: false) }
-    var showInContinueWatching by remember { mutableStateOf(initial?.showInContinueWatching ?: true) }
+    var showInContinueWatching by remember { mutableStateOf(initial?.showInContinueWatching) }
+    var rememberPositions by remember { mutableStateOf(initial?.rememberPositions) }
+    var hidden by remember { mutableStateOf(initial?.hidden ?: false) }
+    var locked by remember { mutableStateOf(initial?.locked ?: false) }
+    var confirmClear by remember { mutableStateOf(false) }
     var picking by remember { mutableStateOf<ServerConfig?>(null) }
     // The source a suggested login was copied from: that password must not follow a change of host.
     var loginFrom by remember { mutableStateOf<ServerConfig?>(null) }
@@ -114,6 +121,9 @@ fun ServerEditScreen(existingId: String?, prefill: ServerConfig?, onDone: () -> 
             // Keep the remembered certificate only while the setting and the server stay the same.
             pinnedCert = existing?.takeIf { insecureTls && it.allowInsecureTls && it.host == host.trim() }?.pinnedCert ?: "",
             showInContinueWatching = showInContinueWatching,
+            rememberPositions = rememberPositions,
+            hidden = hidden,
+            locked = locked,
         )
     }
 
@@ -191,15 +201,42 @@ fun ServerEditScreen(existingId: String?, prefill: ServerConfig?, onDone: () -> 
             }
             OutlinedButton(onClick = { picking = build() }) { Text("Browse folders…") }
         }
+        // Without this on the last row, Down from a wide row lands on Test connection or Remove.
+        val lastRow = Modifier.widthIn(max = 720.dp).focusProperties { down = saveFocus }
         ListItem(
             selected = false,
-            onClick = { showInContinueWatching = !showInContinueWatching },
-            headlineContent = { Text("Show in Continue watching") },
-            supportingContent = { Text("When off, its files stay off the home screen. Your place in them is still remembered.") },
-            trailingContent = { Switch(checked = showInContinueWatching, onCheckedChange = { showInContinueWatching = it }) },
-            // Without this, Down from this wide row lands on Test connection or Remove.
-            modifier = Modifier.widthIn(max = 720.dp).focusProperties { down = saveFocus },
+            onClick = { hidden = !hidden },
+            headlineContent = { Text("Hide on home screen") },
+            supportingContent = { Text("Keeps it behind the More tile under Sources.") },
+            trailingContent = { Switch(checked = hidden, onCheckedChange = { hidden = it }) },
+            modifier = Modifier.widthIn(max = 720.dp),
         )
+        ListItem(
+            selected = false,
+            onClick = { if (Pin.isSet) locked = !locked },
+            headlineContent = { Text("Require PIN") },
+            supportingContent = {
+                Text(if (Pin.isSet) "Asks for the PIN before opening or editing it, and keeps it out of Continue watching until then."
+                     else "Set a PIN in Settings first.")
+            },
+            trailingContent = { Switch(checked = locked, onCheckedChange = null, enabled = Pin.isSet) },
+            modifier = Modifier.widthIn(max = 720.dp),
+        )
+        val remembers = rememberPositions ?: Settings.rememberPositions
+        OverrideRow(
+            "Remember where I left off",
+            "When off, files here always start from the beginning and are never marked watched by playing them.",
+            rememberPositions, Settings.rememberPositions, { rememberPositions = it },
+            if (remembers) Modifier.widthIn(max = 720.dp) else lastRow,
+        )
+        if (remembers) {
+            OverrideRow(
+                "Show in Continue watching",
+                "When off, its files stay off the home screen. Your place in them is still remembered.",
+                showInContinueWatching, Settings.showInContinueWatching, { showInContinueWatching = it },
+                lastRow,
+            )
+        }
         status?.let { Text(it, style = MaterialTheme.typography.bodyLarge, color = MaterialTheme.colorScheme.primary) }
         run {
             Row(horizontalArrangement = Arrangement.spacedBy(16.dp), modifier = Modifier.padding(top = 8.dp)) {
@@ -229,6 +266,10 @@ fun ServerEditScreen(existingId: String?, prefill: ServerConfig?, onDone: () -> 
                 }) { Text(if (testing) "Testing…" else "Test connection") }
                 if (existing != null) {
                     OutlinedButton(onClick = {
+                        if (confirmClear) { ResumeStore.clearServer(existing.id); confirmClear = false; status = "Resume points and watched marks cleared." }
+                        else { confirmClear = true; status = "Press again to forget every resume point and watched mark in this source." }
+                    }) { Text(if (confirmClear) "Confirm clear" else "Clear resume points") }
+                    OutlinedButton(onClick = {
                         if (confirmDelete) { ServerRepository.delete(existing.id); SmbSessionPool.invalidate(existing.id); onDone() }
                         else { confirmDelete = true; status = "Press Remove again to confirm." }
                     }) { Text(if (confirmDelete) "Confirm remove" else "Remove") }
@@ -242,6 +283,20 @@ fun ServerEditScreen(existingId: String?, prefill: ServerConfig?, onDone: () -> 
     }
 
     LaunchedEffect(Unit) { runCatching { firstFocus.requestFocus() } }
+}
+
+/** A per-source switch that follows the app setting until set: OK steps Default → the other value → back to matching it → Default. */
+@Composable
+private fun OverrideRow(title: String, description: String, value: Boolean?, default: Boolean, onChange: (Boolean?) -> Unit, modifier: Modifier) {
+    fun onOff(b: Boolean) = if (b) "On" else "Off"
+    ListItem(
+        selected = false,
+        onClick = { onChange(when (value) { null -> !default; !default -> default; else -> null }) },
+        headlineContent = { Text(title) },
+        supportingContent = { Text(description) },
+        trailingContent = { Text(value?.let(::onOff) ?: "Default (${onOff(default)})") },
+        modifier = modifier,
+    )
 }
 
 private fun failureMessage(e: Exception): String =

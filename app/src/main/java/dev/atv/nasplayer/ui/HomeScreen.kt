@@ -23,6 +23,9 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Cloud
 import androidx.compose.material.icons.filled.Dns
+import androidx.compose.material.icons.filled.Lock
+import androidx.compose.material.icons.filled.ExpandLess
+import androidx.compose.material.icons.filled.MoreHoriz
 import androidx.compose.material.icons.filled.Movie
 import androidx.compose.material.icons.filled.MusicNote
 import androidx.compose.material.icons.filled.Settings
@@ -54,6 +57,7 @@ import androidx.tv.material3.Icon
 import androidx.tv.material3.IconButton
 import androidx.tv.material3.MaterialTheme
 import androidx.tv.material3.Text
+import dev.atv.nasplayer.data.Pin
 import dev.atv.nasplayer.data.ResumeEntry
 import dev.atv.nasplayer.data.ResumeStore
 import dev.atv.nasplayer.data.ServerConfig
@@ -87,12 +91,15 @@ fun HomeScreen(
         ContextCompat.registerReceiver(context, receiver, UsbDrives.changes, ContextCompat.RECEIVER_NOT_EXPORTED)
         onDispose { context.unregisterReceiver(receiver) }
     }
-    val continueWatching = remember(resumeVersion, servers, drives) {
-        ResumeStore.continueWatching { e -> (servers + drives).any { it.id == e.serverId && it.showInContinueWatching } }
+    val continueWatching = remember(resumeVersion, servers, drives, Pin.unlocked) {
+        ResumeStore.continueWatching { e -> (servers + drives).any { it.id == e.serverId && it.inContinueWatching && !Pin.needed(it) } }
     }
     val discovered by remember { NetworkDiscovery.discover(context) }.collectAsState(initial = emptyList())
     val unsaved = discovered.filter { d -> servers.none { it.host.equals(d.host, true) || it.host.equals(d.name, true) } }
     val firstFocus = remember { FocusRequester() }
+    var showHidden by remember { mutableStateOf(false) }
+    val anyHidden = servers.any { it.hidden }
+    val visible = if (showHidden) servers else servers.filterNot { it.hidden }
 
     val listState = androidx.compose.foundation.lazy.rememberLazyListState()
     LazyColumn(
@@ -132,15 +139,30 @@ fun HomeScreen(
 
         item {
             Shelf("Sources") {
-                items(servers, key = { it.id }) { server ->
+                items(visible, key = { it.id }) { server ->
                     TileCard(
-                        icon = if (server.type == ServerType.SMB) Icons.Default.Dns else Icons.Default.Cloud,
+                        icon = when {
+                            Pin.needed(server) -> Icons.Default.Lock
+                            server.type == ServerType.SMB -> Icons.Default.Dns
+                            else -> Icons.Default.Cloud
+                        },
                         title = server.name,
                         subtitle = server.subtitle,
                         onClick = { onOpenServer(server) },
                         onLongClick = { onEditServer(server) },
-                        modifier = if (continueWatching.isEmpty() && server == servers.first()) Modifier.focusRequester(firstFocus) else Modifier,
+                        modifier = if (continueWatching.isEmpty() && server == visible.first()) Modifier.focusRequester(firstFocus) else Modifier,
                     )
+                }
+                if (anyHidden) {
+                    item(key = "more") {
+                        TileCard(
+                            icon = if (showHidden) Icons.Default.ExpandLess else Icons.Default.MoreHoriz,
+                            title = if (showHidden) "Fewer" else "More",
+                            subtitle = if (showHidden) "Hide hidden sources" else "${servers.count { it.hidden }} hidden",
+                            onClick = { showHidden = !showHidden },
+                            modifier = if (continueWatching.isEmpty() && visible.isEmpty()) Modifier.focusRequester(firstFocus) else Modifier,
+                        )
+                    }
                 }
                 item(key = "add") {
                     TileCard(
