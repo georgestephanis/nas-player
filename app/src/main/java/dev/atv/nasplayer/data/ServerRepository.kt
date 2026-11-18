@@ -88,7 +88,7 @@ object ServerRepository {
                 s.showInContinueWatching?.let { put("continueWatching", it) }
                 s.rememberPositions?.let { put("rememberPositions", it) }
                 put("hidden", s.hidden)
-                put("locked", s.locked)
+                put("pinHash", s.pinHash)
             })
             if (s.password.isNotEmpty()) unreadPasswords.remove(s.id)
         }
@@ -123,7 +123,7 @@ object ServerRepository {
                     },
                     rememberPositions = if (o.has("rememberPositions")) o.getBoolean("rememberPositions") else null,
                     hidden = o.optBoolean("hidden"),
-                    locked = o.optBoolean("locked"),
+                    pinHash = o.optString("pinHash"),
                 )
             }
         } catch (e: Exception) {

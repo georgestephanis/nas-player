@@ -7,7 +7,7 @@ import java.security.MessageDigest
 import java.security.SecureRandom
 
 /**
- * The app-wide PIN guarding sources marked [ServerConfig.locked]. Entering it unlocks them all
+ * Checks the per-source PINs ([ServerConfig.pinHash]). Entering a source's PIN unlocks that source
  * until the app leaves the screen (see [dev.atv.nasplayer.NasPlayerApp]).
  *
  * ponytail: salted SHA-256 of a 4-digit PIN. It only keeps the PIN out of plain sight in app-private
@@ -18,29 +18,25 @@ object Pin {
     private const val MAX_TRIES = 5
     private const val LOCKOUT_MS = 30_000L
 
-    var unlocked by mutableStateOf(false)
+    /** Ids of sources unlocked this visit. Replaced, never mutated, so it works as a Compose key. */
+    var unlocked by mutableStateOf(emptySet<String>())
+    // ponytail: one miss counter for all sources, so switching sources doesn't buy more tries.
     private var misses = 0
     private var lockedUntil = 0L
 
-    val isSet: Boolean get() = Settings.pinHash.isNotEmpty()
+    fun needed(server: ServerConfig): Boolean = server.locked && server.id !in unlocked
 
-    fun needed(server: ServerConfig): Boolean = server.locked && isSet && !unlocked
+    fun unlock(id: String) { unlocked = unlocked + id }
 
     /** Seconds left before another try is allowed, or 0. */
     fun waitSeconds(now: Long = System.currentTimeMillis()): Long = ((lockedUntil - now + 999) / 1000).coerceAtLeast(0)
 
-    fun check(pin: String): Boolean {
+    fun check(server: ServerConfig, pin: String): Boolean {
         if (waitSeconds() > 0) return false
-        val ok = pinMatches(Settings.pinHash, pin)
-        if (ok) { misses = 0; unlocked = true }
+        val ok = pinMatches(server.pinHash, pin)
+        if (ok) { misses = 0; unlock(server.id) }
         else if (++misses >= MAX_TRIES) { misses = 0; lockedUntil = System.currentTimeMillis() + LOCKOUT_MS }
         return ok
-    }
-
-    /** Sets a new PIN, or removes it with null. */
-    fun set(pin: String?) {
-        Settings.pinHash = pin?.let(::hashPin) ?: ""
-        unlocked = pin != null
     }
 }
 

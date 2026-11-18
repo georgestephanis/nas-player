@@ -34,9 +34,10 @@ data class ServerConfig(
     val rememberPositions: Boolean? = null,
     /** Kept behind the "More" tile on the home screen. */
     val hidden: Boolean = false,
-    /** Needs the app [Pin] to open, edit, or appear in Continue watching. */
-    val locked: Boolean = false,
+    /** This source's PIN as "salt:sha256" (see [Pin]); empty for none. Needed to open, edit, or show it in Continue watching. */
+    val pinHash: String = "",
 ) {
+    val locked: Boolean get() = pinHash.isNotEmpty()
     val remembersPositions: Boolean get() = rememberPositions ?: Settings.rememberPositions
     val inContinueWatching: Boolean get() = remembersPositions && (showInContinueWatching ?: Settings.showInContinueWatching)
 

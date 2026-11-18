@@ -81,7 +81,8 @@ fun ServerEditScreen(existingId: String?, prefill: ServerConfig?, onDone: () -> 
     var showInContinueWatching by remember { mutableStateOf(initial?.showInContinueWatching) }
     var rememberPositions by remember { mutableStateOf(initial?.rememberPositions) }
     var hidden by remember { mutableStateOf(initial?.hidden ?: false) }
-    var locked by remember { mutableStateOf(initial?.locked ?: false) }
+    var pinHash by remember { mutableStateOf(existing?.pinHash ?: "") }
+    var settingPin by remember { mutableStateOf(false) }
     var confirmClear by remember { mutableStateOf(false) }
     var picking by remember { mutableStateOf<ServerConfig?>(null) }
     // The source a suggested login was copied from: that password must not follow a change of host.
@@ -124,7 +125,7 @@ fun ServerEditScreen(existingId: String?, prefill: ServerConfig?, onDone: () -> 
             showInContinueWatching = showInContinueWatching,
             rememberPositions = rememberPositions,
             hidden = hidden,
-            locked = locked,
+            pinHash = pinHash,
         )
     }
 
@@ -214,15 +215,20 @@ fun ServerEditScreen(existingId: String?, prefill: ServerConfig?, onDone: () -> 
         )
         ListItem(
             selected = false,
-            onClick = { if (Pin.isSet) locked = !locked },
-            headlineContent = { Text("Require PIN") },
-            supportingContent = {
-                Text(if (Pin.isSet) "Asks for the PIN before opening or editing it, and keeps it out of Continue watching until then."
-                     else "Set a PIN in Settings first.")
-            },
-            trailingContent = { Switch(checked = locked, onCheckedChange = null, enabled = Pin.isSet) },
+            onClick = { settingPin = true },
+            headlineContent = { Text(if (pinHash.isEmpty()) "Set a PIN" else "Change PIN") },
+            supportingContent = { Text("Asks for it before opening or editing this source, and keeps it out of Continue watching until then. Takes effect when you save.") },
+            trailingContent = { Text(if (pinHash.isEmpty()) "Off" else "On") },
             modifier = Modifier.widthIn(max = 720.dp),
         )
+        if (pinHash.isNotEmpty()) {
+            ListItem(
+                selected = false,
+                onClick = { pinHash = "" },
+                headlineContent = { Text("Remove PIN") },
+                modifier = Modifier.widthIn(max = 720.dp),
+            )
+        }
         val remembers = rememberPositions ?: Settings.rememberPositions
         OverrideRow(
             "Remember where I left off",
@@ -242,7 +248,8 @@ fun ServerEditScreen(existingId: String?, prefill: ServerConfig?, onDone: () -> 
         run {
             Row(horizontalArrangement = Arrangement.spacedBy(16.dp), modifier = Modifier.padding(top = 8.dp)) {
                 Button(onClick = {
-                    build()?.let { ServerRepository.save(it); SmbSessionPool.invalidate(it.id); onDone() }
+                    // Whoever just set the PIN stays in until the app leaves the screen.
+                    build()?.let { ServerRepository.save(it); if (it.locked) Pin.unlock(it.id); SmbSessionPool.invalidate(it.id); onDone() }
                 }, modifier = Modifier.focusRequester(saveFocus)) { Text("Save") }
                 // Not disabled while testing: disabling the focused button would drop D-pad focus.
                 OutlinedButton(onClick = {
@@ -278,6 +285,8 @@ fun ServerEditScreen(existingId: String?, prefill: ServerConfig?, onDone: () -> 
             }
         }
     }
+
+    if (settingPin) PinSetupDialog(onDismiss = { settingPin = false }) { pinHash = it; settingPin = false }
 
     picking?.let { cfg ->
         FolderPicker(cfg, onDismiss = { picking = null }, onPick = { path = it; picking = null })

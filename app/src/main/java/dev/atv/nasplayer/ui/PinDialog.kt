@@ -114,7 +114,7 @@ fun PinDialog(
 
 /**
  * Asks for the PIN before [run]'s action on a locked source; runs it straight away otherwise.
- * Forgetting the PIN offers to remove that source only. Its saved login goes with it, so nothing is unlocked.
+ * Forgetting the PIN offers to remove that source. Its saved login goes with it, so nothing is unlocked.
  */
 class PinGate {
     private var pending by mutableStateOf<Pair<ServerConfig, () -> Unit>?>(null)
@@ -130,7 +130,23 @@ class PinGate {
             forgotLabel = "remove ${server.name} from this app",
             onForgot = { ServerRepository.delete(server.id); SmbSessionPool.invalidate(server.id); pending = null },
         ) { pin ->
-            if (Pin.check(pin)) { pending = null; action(); null } else "Wrong PIN."
+            if (Pin.check(server, pin)) { pending = null; action(); null } else "Wrong PIN."
+        }
+    }
+}
+
+/** Asks for a new PIN twice; [onSet] gets its stored form. */
+@Composable
+fun PinSetupDialog(onDismiss: () -> Unit, onSet: (String) -> Unit) {
+    var first by remember { mutableStateOf<String?>(null) }
+    var mismatch by remember { mutableStateOf(false) }
+    // key: a fresh, empty dialog for each step.
+    androidx.compose.runtime.key(first, mismatch) {
+        val f = first
+        if (f == null) PinDialog(if (mismatch) "The PINs didn't match. Choose a PIN" else "Choose a ${Pin.LENGTH}-digit PIN", onDismiss) { first = it; null }
+        else PinDialog("Enter it again", onDismiss) { pin ->
+            if (pin == f) onSet(dev.atv.nasplayer.data.hashPin(pin)) else { first = null; mismatch = true }
+            null
         }
     }
 }

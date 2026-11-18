@@ -64,11 +64,6 @@ object Settings {
         get() = prefs.getBoolean("showInContinueWatching", true)
         set(v) = prefs.edit().putBoolean("showInContinueWatching", v).apply()
 
-    /** "salt:sha256" of the PIN; empty when none is set. Use [Pin], not this. */
-    var pinHash: String
-        get() = prefs.getString("pinHash", "").orEmpty()
-        set(v) = prefs.edit().putString("pinHash", v).apply()
-
     var showAllFiles: Boolean
         get() = prefs.getBoolean("showAllFiles", false)
         set(v) = prefs.edit().putBoolean("showAllFiles", v).apply()

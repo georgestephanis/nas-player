@@ -21,7 +21,6 @@ import androidx.tv.material3.RadioButton
 import androidx.tv.material3.Switch
 import androidx.tv.material3.Text
 import dev.atv.nasplayer.BuildConfig
-import dev.atv.nasplayer.data.Pin
 import dev.atv.nasplayer.data.Settings
 import dev.atv.nasplayer.playback.EnginePreference
 
@@ -36,8 +35,6 @@ fun SettingsScreen(onOpenLog: () -> Unit) {
     var listSize by remember { mutableStateOf(Settings.listSize) }
     var rememberPos by remember { mutableStateOf(Settings.rememberPositions) }
     var continueWatching by remember { mutableStateOf(Settings.showInContinueWatching) }
-    var pinSet by remember { mutableStateOf(Pin.isSet) }
-    var pinStep by remember { mutableStateOf<PinStep?>(null) }
     val context = androidx.compose.ui.platform.LocalContext.current
     val first = remember { FocusRequester() }
     val w = Modifier.widthIn(max = 760.dp)
@@ -83,25 +80,6 @@ fun SettingsScreen(onOpenLog: () -> Unit) {
                 headlineContent = { Text("Show in Continue watching") },
                 supportingContent = { Text("Default for every source; each source can override it in its settings.") },
                 trailingContent = { Switch(checked = continueWatching, onCheckedChange = null) },
-                modifier = w,
-            )
-        }
-        item { Text("PIN lock", style = MaterialTheme.typography.titleMedium) }
-        item {
-            ListItem(
-                selected = false,
-                onClick = { pinStep = if (!pinSet) PinStep.New else if (Pin.unlocked) PinStep.New else PinStep.Verify(remove = false) },
-                headlineContent = { Text(if (pinSet) "Change PIN" else "Set PIN") },
-                supportingContent = { Text("Turn on Require PIN in a source's settings to lock it. Entering the PIN unlocks every locked source until you leave the app.") },
-                modifier = w,
-            )
-        }
-        if (pinSet) item {
-            ListItem(
-                selected = false,
-                onClick = { if (Pin.unlocked) { Pin.set(null); pinSet = false } else pinStep = PinStep.Verify(remove = true) },
-                headlineContent = { Text("Remove PIN") },
-                supportingContent = { Text("Locked sources open without asking.") },
                 modifier = w,
             )
         }
@@ -202,42 +180,4 @@ fun SettingsScreen(onOpenLog: () -> Unit) {
     }
     LaunchedEffect(Unit) { runCatching { first.requestFocus() } }
 
-    when (val step = pinStep) {
-        null -> Unit
-        is PinStep.Verify -> PinDialog(
-            "Enter current PIN",
-            onDismiss = { pinStep = null },
-            forgotLabel = "remove the PIN and every locked source",
-            onForgot = {
-                dev.atv.nasplayer.data.ServerRepository.servers.value.filter { it.locked }.forEach {
-                    dev.atv.nasplayer.data.ServerRepository.delete(it.id)
-                    dev.atv.nasplayer.source.SmbSessionPool.invalidate(it.id)
-                }
-                Pin.set(null); pinSet = false; pinStep = null
-            },
-        ) { pin ->
-            if (!Pin.check(pin)) return@PinDialog "Wrong PIN."
-            if (step.remove) { Pin.set(null); pinSet = false; pinStep = null } else pinStep = PinStep.New
-            null
-        }
-        // key: a fresh dialog (empty entry) for each step.
-        PinStep.New -> androidx.compose.runtime.key(step) {
-            PinDialog("Choose a ${Pin.LENGTH}-digit PIN", onDismiss = { pinStep = null }) { pin -> pinStep = PinStep.Confirm(pin); null }
-        }
-        is PinStep.Confirm -> androidx.compose.runtime.key(step) {
-            PinDialog("Enter it again", onDismiss = { pinStep = null }) { pin ->
-                if (pin != step.first) {
-                    android.widget.Toast.makeText(context, "The PINs didn't match. Try again.", android.widget.Toast.LENGTH_SHORT).show()
-                    pinStep = PinStep.New; null
-                }
-                else { Pin.set(pin); pinSet = true; pinStep = null; android.widget.Toast.makeText(context, "PIN saved", android.widget.Toast.LENGTH_SHORT).show(); null }
-            }
-        }
-    }
-}
-
-private sealed interface PinStep {
-    data class Verify(val remove: Boolean) : PinStep
-    data object New : PinStep
-    data class Confirm(val first: String) : PinStep
 }
