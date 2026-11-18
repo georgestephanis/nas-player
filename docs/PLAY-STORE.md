@@ -14,9 +14,7 @@ Status as of 2026-11-11. Items marked **Blocker** will get the app rejected or s
 
 ## Decisions to make before the first upload (permanent)
 
-- [ ] **Package name.** `dev.atv.nasplayer` can never change once uploaded. The reverse-domain
-  convention suggests you own `atv.dev`. Play doesn't check that, but if you'd rather use your own
-  domain (e.g. `com.stephanis.nasplayer`), change it now.
+- [x] **Package name.** `me.stephanis.nasplayer` for the Play build (see below).
 - [ ] **App name.** "NAS Player" is generic. Search Play for clashes. The title limit is 30 characters.
 - [x] **TV only.** `android.software.leanback` is required and the phone launcher entry is gone, so Play
   only offers the app to TVs. Add only the Android TV form factor in Play Console.
@@ -56,8 +54,7 @@ Status as of 2026-11-11. Items marked **Blocker** will get the app rejected or s
 
 ## App content forms in Play Console (Policy → App content)
 
-- [ ] **Privacy policy URL** (required for every app). Host a short page, e.g. GitHub Pages or a file
-  in the repo, saying: no accounts and no analytics; the app connects only to servers the user adds;
+- [x] **Privacy policy URL** (required for every app): `PRIVACY.md` in the repo, saying: no accounts and no analytics; the app connects only to servers the user adds;
   passwords are stored on the device, encrypted with the Android Keystore; nothing is sent to the
   developer.
 - [ ] **Data safety form.** Data collected: none. Data shared: none. Server credentials and the
