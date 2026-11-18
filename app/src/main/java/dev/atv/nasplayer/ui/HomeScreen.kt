@@ -282,7 +282,8 @@ private fun ResumeCard(entry: ResumeEntry, serverName: String, modifier: Modifie
                         .data(dev.atv.nasplayer.images.Thumb(entry.serverId, entry.path, kind, -2, 0))
                         .build(),
                     contentDescription = null,
-                    contentScale = androidx.compose.ui.layout.ContentScale.Fit,
+                    // 16:9 frames crop to the 2:1 tile; square album art fits.
+                    contentScale = if (kind == MediaKind.AUDIO) androidx.compose.ui.layout.ContentScale.Fit else androidx.compose.ui.layout.ContentScale.Crop,
                     modifier = Modifier.fillMaxSize(),
                 )
                 LinearProgressIndicator(
