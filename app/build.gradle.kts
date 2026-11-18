@@ -51,7 +51,7 @@ android {
             signingConfig = signingConfigs.getByName(if (sharedKey.exists()) "shared" else "debug")
         }
         // Same build as release, signed with the upload key: `./gradlew bundlePlay` → app/build/outputs/bundle/play/.
-        // ponytail: same applicationId as the sideloaded build, so a TV can't have both installed at once.
+        // Its own app ID (set below), so it installs beside the sideloaded dev.atv.nasplayer.
         create("play") {
             initWith(getByName("release"))
             signingConfig = signingConfigs.getByName("upload")
@@ -125,6 +125,11 @@ dependencies {
 
     debugImplementation(libs.compose.ui.tooling)
     testImplementation(libs.junit)
+}
+
+// The Play listing's permanent ID. Sideload builds keep dev.atv.nasplayer so existing installs keep their data.
+androidComponents {
+    onVariants(selector().withBuildType("play")) { it.applicationId.set("me.stephanis.nasplayer") }
 }
 
 tasks.matching { it.name == "validateSigningPlay" }.configureEach {

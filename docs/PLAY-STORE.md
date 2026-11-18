@@ -42,10 +42,9 @@ Status as of 2026-11-11. Items marked **Blocker** will get the app rejected or s
     Bundle with `./gradlew bundlePlay`.
     The output is `app/build/outputs/bundle/play/app-play.aab`. Play makes the per-ABI APKs itself;
     the `splits { abi }` block only affects sideload APKs.
-- [ ] **Sideloaded vs Play installs.** The Play-installed app will be signed with Google's key, not
-  `nas-player.keystore`, so it can't update over the sideloaded app on your TV, or the other way
-  round. Either uninstall once when switching (this loses saved sources and resume positions), or give
-  sideload builds `applicationIdSuffix = ".dev"` so both can be installed side by side.
+- [x] **Sideloaded vs Play installs.** The Play build's app ID is `me.stephanis.nasplayer` (permanent
+  once uploaded); sideload builds stay `dev.atv.nasplayer`. They are separate apps, so both can be
+  installed on one TV, and sideloaded installs keep their sources and resume positions.
 - [ ] **versionCode / versionName.** Each upload needs a higher `versionCode` (currently 1). Pick a
   scheme now, e.g. `versionCode` = build number and `versionName` = `1.0.0`.
 - [ ] **Target API.** `targetSdk = 36`. Play requires new apps to target a recent API level (the
