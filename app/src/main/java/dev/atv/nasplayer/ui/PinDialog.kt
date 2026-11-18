@@ -6,6 +6,8 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -92,14 +94,14 @@ fun PinDialog(
                             OutlinedButton(
                                 onClick = { type(d) },
                                 modifier = Modifier.width(72.dp).then(if (row == 0 && i == 0) Modifier.focusRequester(focus) else Modifier),
-                            ) { Text(d.toString()) }
+                            ) { KeyLabel(d.toString()) }
                         }
                     }
                 }
                 Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                    OutlinedButton(onClick = onDismiss, modifier = Modifier.width(72.dp)) { Text("✕") }
-                    OutlinedButton(onClick = { type('0') }, modifier = Modifier.width(72.dp)) { Text("0") }
-                    Button(onClick = { entry = entry.dropLast(1) }, modifier = Modifier.width(72.dp)) { Text("⌫") }
+                    OutlinedButton(onClick = onDismiss, modifier = Modifier.width(72.dp)) { KeyLabel("✕") }
+                    OutlinedButton(onClick = { type('0') }, modifier = Modifier.width(72.dp)) { KeyLabel("0") }
+                    Button(onClick = { entry = entry.dropLast(1) }, modifier = Modifier.width(72.dp)) { KeyLabel("⌫") }
                 }
                 if (forgotLabel != null) {
                     OutlinedButton(onClick = { if (confirmForgot) onForgot() else confirmForgot = true }) {
@@ -150,3 +152,7 @@ fun PinSetupDialog(onDismiss: () -> Unit, onSet: (String) -> Unit) {
         }
     }
 }
+
+/** Button content is start-aligned by default; keypad digits look better centred. */
+@Composable
+private fun KeyLabel(s: String) = Text(s, Modifier.fillMaxWidth(), textAlign = TextAlign.Center)
