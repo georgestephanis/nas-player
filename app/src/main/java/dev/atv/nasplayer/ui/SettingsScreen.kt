@@ -204,7 +204,18 @@ fun SettingsScreen(onOpenLog: () -> Unit) {
 
     when (val step = pinStep) {
         null -> Unit
-        is PinStep.Verify -> PinDialog("Enter current PIN", onDismiss = { pinStep = null }) { pin ->
+        is PinStep.Verify -> PinDialog(
+            "Enter current PIN",
+            onDismiss = { pinStep = null },
+            forgotLabel = "remove the PIN and every locked source",
+            onForgot = {
+                dev.atv.nasplayer.data.ServerRepository.servers.value.filter { it.locked }.forEach {
+                    dev.atv.nasplayer.data.ServerRepository.delete(it.id)
+                    dev.atv.nasplayer.source.SmbSessionPool.invalidate(it.id)
+                }
+                Pin.set(null); pinSet = false; pinStep = null
+            },
+        ) { pin ->
             if (!Pin.check(pin)) return@PinDialog "Wrong PIN."
             if (step.remove) { Pin.set(null); pinSet = false; pinStep = null } else pinStep = PinStep.New
             null

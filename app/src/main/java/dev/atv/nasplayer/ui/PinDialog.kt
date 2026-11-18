@@ -28,15 +28,26 @@ import androidx.tv.material3.OutlinedButton
 import androidx.tv.material3.Surface
 import androidx.tv.material3.Text
 import dev.atv.nasplayer.data.Pin
+import dev.atv.nasplayer.data.ServerConfig
+import dev.atv.nasplayer.data.ServerRepository
+import dev.atv.nasplayer.source.SmbSessionPool
 import kotlinx.coroutines.delay
 
 /**
  * Asks for a [Pin.LENGTH]-digit PIN using the on-screen keypad or the remote's number keys.
  * [onEntered] returns an error message to show and clear the entry, or null to accept it.
+ * With [forgotLabel], a "Forgot PIN?" button runs [onForgot] after a second press to confirm.
  */
 @Composable
-fun PinDialog(title: String, onDismiss: () -> Unit, onEntered: (String) -> String?) {
+fun PinDialog(
+    title: String,
+    onDismiss: () -> Unit,
+    forgotLabel: String? = null,
+    onForgot: () -> Unit = {},
+    onEntered: (String) -> String?,
+) {
     var entry by remember { mutableStateOf("") }
+    var confirmForgot by remember { mutableStateOf(false) }
     var message by remember { mutableStateOf<String?>(null) }
     var wait by remember { mutableStateOf(Pin.waitSeconds()) }
     val focus = remember { FocusRequester() }
@@ -90,23 +101,35 @@ fun PinDialog(title: String, onDismiss: () -> Unit, onEntered: (String) -> Strin
                     OutlinedButton(onClick = { type('0') }, modifier = Modifier.width(72.dp)) { Text("0") }
                     Button(onClick = { entry = entry.dropLast(1) }, modifier = Modifier.width(72.dp)) { Text("⌫") }
                 }
+                if (forgotLabel != null) {
+                    OutlinedButton(onClick = { if (confirmForgot) onForgot() else confirmForgot = true }) {
+                        Text(if (confirmForgot) "Press again: $forgotLabel" else "Forgot PIN?")
+                    }
+                }
             }
         }
     }
     LaunchedEffect(Unit) { delay(100); runCatching { focus.requestFocus() } }
 }
 
-/** Asks for the PIN, then runs [action]; runs it straight away when no PIN is needed. */
+/**
+ * Asks for the PIN before [run]'s action on a locked source; runs it straight away otherwise.
+ * Forgetting the PIN offers to remove that source only. Its saved login goes with it, so nothing is unlocked.
+ */
 class PinGate {
-    var pending by mutableStateOf<(() -> Unit)?>(null)
-        private set
+    private var pending by mutableStateOf<Pair<ServerConfig, () -> Unit>?>(null)
 
-    fun run(needed: Boolean, action: () -> Unit) { if (needed) pending = action else action() }
+    fun run(server: ServerConfig, action: () -> Unit) { if (Pin.needed(server)) pending = server to action else action() }
 
     @Composable
     fun Prompt() {
-        val action = pending ?: return
-        PinDialog("Enter PIN", onDismiss = { pending = null }) { pin ->
+        val (server, action) = pending ?: return
+        PinDialog(
+            "Enter PIN for ${server.name}",
+            onDismiss = { pending = null },
+            forgotLabel = "remove ${server.name} from this app",
+            onForgot = { ServerRepository.delete(server.id); SmbSessionPool.invalidate(server.id); pending = null },
+        ) { pin ->
             if (Pin.check(pin)) { pending = null; action(); null } else "Wrong PIN."
         }
     }

@@ -94,7 +94,8 @@ fun ServerEditScreen(existingId: String?, prefill: ServerConfig?, onDone: () -> 
     val context = LocalContext.current
     val adding = existing == null
     val discovered by remember { if (adding) NetworkDiscovery.discover(context) else emptyFlow() }.collectAsState(initial = emptyList())
-    val others = ServerRepository.servers.collectAsState().value.filter { it.id != existing?.id }
+    // Locked sources stay out of suggestions, or Add source would hand out their login.
+    val others = ServerRepository.servers.collectAsState().value.filter { it.id != existing?.id && !Pin.needed(it) }
 
     fun changeHost(value: String) {
         host = value
