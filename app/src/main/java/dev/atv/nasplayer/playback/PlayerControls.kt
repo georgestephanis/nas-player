@@ -65,7 +65,7 @@ private class BarButton(val icon: ImageVector, val label: String, val enabled: B
 /**
  * Remote handling and the bottom bar, shared by both engines. The video is never dimmed: only the bar
  * itself has a background. ◀ ▶ always seek, whether or not the bar is showing; ▼ moves onto the buttons,
- * where ◀ ▶ choose one until ▲ moves off again. Back always leaves the player.
+ * where ◀ ▶ choose one until ▲ moves off again. Back hides the bar, or leaves the player when it is hidden.
  * [selection] is the chosen button, owned by the player screen so Next/Previous stay chosen on the next file.
  */
 @Composable
@@ -117,7 +117,11 @@ internal fun PlayerControls(
         if (trackMenu == null) runCatching { focus.requestFocus() }
     }
 
-    BackHandler { selected = null; onExit() }
+    // A bar that can be hidden is hidden first; one that can't (paused, buffering) doesn't take an extra press.
+    BackHandler {
+        if (barShown && playing && !buffering && !keepBarVisible) { barShown = false; selected = null }
+        else { selected = null; onExit() }
+    }
 
     Box(
         Modifier
