@@ -13,6 +13,10 @@ docker run -d --name nasplayer-smb -p 1445:445 -v /path/to/media:/media:ro \
 
 Add it in the app with your computer's LAN IP, port `1445`, user `tester`, password `secret`. From the emulator the host is `10.0.2.2`.
 
+### Public demo server
+
+`https://nasplayer-demo.stephanis.me` serves the generated demo library (Movies, TV, Music, Photos) over read-only WebDAV. Play reviewers use it too (Play Console → Sign in details), so keep it up and don't change its login without updating that form. It runs on rackpi as `~/docker/nas-player-demo` (rclone behind the existing nginx-proxy); the user is `reviewer` and the password is in that folder's `.env`. Use it for screenshots and for testing over the internet; its host name is safe to show in screenshots.
+
 Useful sample files, generated with `ffmpeg` (`-f lavfi -i testsrc2` for video, `-i sine` for audio):
 
 | Purpose | Encoding |
