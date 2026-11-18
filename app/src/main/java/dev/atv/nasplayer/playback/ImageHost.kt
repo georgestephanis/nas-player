@@ -74,7 +74,8 @@ fun ImageHost(
     val context = LocalContext.current
     val name = request.items[session.index]
     val path = joinPath(request.folder, name)
-    var overlay by remember(session) { mutableStateOf(true) }
+    // A slideshow moving on keeps the details hidden; ▼ or INFO still shows them.
+    var overlay by remember(session) { mutableStateOf(!slideshow) }
     var poke by remember(session) { mutableIntStateOf(0) }
     // The photo on screen; it stays under the new one until that has loaded and faded in.
     var shown by remember { mutableStateOf<String?>(null) }
