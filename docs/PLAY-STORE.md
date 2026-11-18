@@ -5,18 +5,18 @@ Status as of 2026-11-18. Items marked **Blocker** will get the app rejected or s
 ## Where things stand
 
 - **Internal testing:** release `1.0 (1)` is live for the internal email list.
-- **Closed testing (Alpha):** release `1.0 (2)` (versionCode 2) went to Google for review on 2026-11-18,
-  along with the store listing and every App content declaration. Review usually takes up to 7 days.
+- **Closed testing (Alpha):** release `1.0 (2)` passed Google's review on 2026-11-18 and is available
+  to testers. Release `1.0.2 (3)` (About & licences screen, TV QA fixes) went for review the same day.
   - Testers: anyone in the Google Group
     [nasplayer-testers@googlegroups.com](https://groups.google.com/g/nasplayer-testers), which anyone
     can join. Members then opt in at https://play.google.com/apps/testing/me.stephanis.nasplayer.
   - Feedback goes to GitHub issues.
   - Available in all 178 countries and regions.
-- **GitHub:** the same code is release [v1.0.1](https://github.com/georgestephanis/nas-player/releases/tag/v1.0.1).
-  The Play build says "1.0" because it was built before `versionName` was bumped. The next upload
-  will match.
+- **GitHub:** release [v1.0.2](https://github.com/georgestephanis/nas-player/releases/tag/v1.0.2) is the
+  same code as Play's `1.0.2 (3)`. (Play's `1.0 (2)` is GitHub's v1.0.1; it was built before
+  `versionName` was bumped.)
 - **Next:**
-  1. Once the review passes, recruit testers by posting on Reddit and similar places.
+  1. Recruit testers by posting on Reddit and similar places.
   2. Get 12 testers opted in, then wait 14 days.
   3. Apply for production access.
 
@@ -27,8 +27,8 @@ Status as of 2026-11-18. Items marked **Blocker** will get the app rejected or s
   before they can apply for production. Production and open testing stay locked until then; check
   *Dashboard → Production access*.
 - [ ] Start the closed test as soon as possible, because the 14 days don't begin until 12 testers have
-  opted in. Testers need a Google account; they can be friends and family. *(In review; testers
-  can't install it until the review passes.)*
+  opted in. Testers need a Google account; they can be friends and family. *(Open to testers since
+  2026-11-18.)*
 
 ## Decisions to make before the first upload (permanent)
 
@@ -62,7 +62,7 @@ Status as of 2026-11-18. Items marked **Blocker** will get the app rejected or s
   once uploaded); sideload builds stay `dev.atv.nasplayer`. They are separate apps, so both can be
   installed on one TV, and sideloaded installs keep their sources and resume positions.
 - [x] **versionCode / versionName.** `versionCode` goes up by one for every Play upload. `versionName`
-  is semantic (`1.0.1`) and matches the GitHub tag. Currently 3 / 1.0.2.
+  is semantic (`1.0.2`) and matches the GitHub tag. Currently 3 / 1.0.2.
 - [x] **Target API.** `targetSdk = 36` was accepted.
 - [x] **Landscape.** `screenOrientation="landscape"` implies a required
   `android.hardware.screen.landscape`, which Play's pre-review check flags because it excludes TVs. The
@@ -113,7 +113,7 @@ All of these are complete; App content shows nothing needing attention.
 ## Release flow
 
 1. [x] Internal testing: release `1.0 (1)` is live for the internal email list.
-2. [ ] Closed testing: 12+ testers for 14 days, fixing whatever they report. *(In review since
+2. [ ] Closed testing: 12+ testers for 14 days, fixing whatever they report. *(Open since
    2026-11-18.)*
 3. [ ] Apply for production access, answering the questions about the test.
 4. [ ] Production: a staged rollout (e.g. 20%) is optional for a new app, but harmless.
@@ -127,7 +127,7 @@ All of these are complete; App content shows nothing needing attention.
    to Play. In a saved release you can't swap the bundle: discard the release and create a new one.
 3. Tag and publish the same commit on GitHub with the APKs (all signed with the upload key):
    ```bash
-   v=1.0.1; d=$(mktemp -d)
+   v=1.0.2; d=$(mktemp -d)
    for a in arm64-v8a armeabi-v7a x86_64 universal; do
      cp app/build/outputs/apk/play/app-$a-play.apk "$d/NAS-Player-$v-$a.apk"; done
    gh release create v$v "$d"/*.apk --target main --title "NAS Player $v" --notes-file notes.md
