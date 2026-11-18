@@ -41,6 +41,7 @@ fun ExoHost(
     onFallback: (positionMs: Long, reason: String, softwareDecode: Boolean) -> Unit,
     onError: (String) -> Unit,
     onExit: () -> Unit,
+    selection: androidx.compose.runtime.MutableState<Int?>,
 ) {
     val context = LocalContext.current
     val player = remember(session) { ExoFactory.create(context) }
@@ -239,6 +240,7 @@ fun ExoHost(
         onPrevious = { if (player.currentPosition > 5_000) player.seekTo(0) else onPrevious() },
         tracks = { exoTrackChoices(player) },
         onExit = onExit,
+        selection = selection,
     ) {
         AndroidView(
             modifier = Modifier.fillMaxSize(),

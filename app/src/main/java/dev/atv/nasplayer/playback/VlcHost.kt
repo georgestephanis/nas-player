@@ -64,6 +64,7 @@ fun VlcHost(
     onPrevious: () -> Unit,
     onError: (String) -> Unit,
     onExit: () -> Unit,
+    selection: androidx.compose.runtime.MutableState<Int?>,
 ) {
     val context = LocalContext.current
     val libVlc = remember { VlcRuntime.get(context) }
@@ -182,6 +183,7 @@ fun VlcHost(
         onPrevious = { if (mp.time > 5_000) mp.setTime(0) else onPrevious() },
         tracks = ::tracks,
         onExit = onExit,
+        selection = selection,
     ) {
         AndroidView(
             modifier = Modifier.fillMaxSize(),

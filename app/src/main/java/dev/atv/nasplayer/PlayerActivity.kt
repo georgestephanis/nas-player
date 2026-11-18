@@ -94,6 +94,8 @@ fun PlayerScreen(server: ServerConfig, request: PlaybackRequest, onExit: () -> U
     var error by remember { mutableStateOf<Pair<PlaybackSession, String>?>(null) }
     var nonce by remember { mutableIntStateOf(0) }
     var slideshow by remember { mutableStateOf(false) }
+    // The bar button chosen in the video controls; outlives each file's player so Next, Next works.
+    val selection = remember { mutableStateOf<Int?>(null) }
 
     fun pathOf(i: Int) = joinPath(request.folder, request.items[i])
     fun isImage(i: Int) = dev.atv.nasplayer.source.MediaTypes.kindOf(request.items[i]) == dev.atv.nasplayer.source.MediaKind.IMAGE
@@ -170,6 +172,7 @@ fun PlayerScreen(server: ServerConfig, request: PlaybackRequest, onExit: () -> U
                     },
                     onError = { msg -> error = s to msg },
                     onExit = onExit,
+                    selection = selection,
                 )
                 else -> VlcHost(
                     server = server,
@@ -181,6 +184,7 @@ fun PlayerScreen(server: ServerConfig, request: PlaybackRequest, onExit: () -> U
                     onPrevious = ::previous,
                     onError = { msg -> error = s to msg },
                     onExit = onExit,
+                    selection = selection,
                 )
             } }
         }

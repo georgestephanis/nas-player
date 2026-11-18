@@ -65,7 +65,8 @@ private class BarButton(val icon: ImageVector, val label: String, val enabled: B
 /**
  * Remote handling and the bottom bar, shared by both engines. The video is never dimmed: only the bar
  * itself has a background. ◀ ▶ always seek, whether or not the bar is showing; ▼ moves onto the buttons,
- * where ◀ ▶ choose one until ▲ or Back moves off again.
+ * where ◀ ▶ choose one until ▲ moves off again. Back always leaves the player.
+ * [selection] is the chosen button, owned by the player screen so Next/Previous stay chosen on the next file.
  */
 @Composable
 internal fun PlayerControls(
@@ -83,11 +84,12 @@ internal fun PlayerControls(
     onPrevious: () -> Unit,
     tracks: () -> List<TrackChoice>,
     onExit: () -> Unit,
+    selection: androidx.compose.runtime.MutableState<Int?>,
     video: @Composable BoxScope.() -> Unit,
 ) {
     var barShown by remember { mutableStateOf(true) }
     var poke by remember { mutableIntStateOf(0) }
-    var selected by remember { mutableStateOf<Int?>(null) }
+    var selected by selection
     var trackMenu by remember { mutableStateOf<List<TrackChoice>?>(null) }
     val focus = remember { FocusRequester() }
 
@@ -115,13 +117,7 @@ internal fun PlayerControls(
         if (trackMenu == null) runCatching { focus.requestFocus() }
     }
 
-    BackHandler {
-        when {
-            selected != null -> { selected = null; show() }
-            barShown && playing && !keepBarVisible -> barShown = false
-            else -> onExit()
-        }
-    }
+    BackHandler { selected = null; onExit() }
 
     Box(
         Modifier
