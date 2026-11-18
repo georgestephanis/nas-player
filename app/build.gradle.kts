@@ -29,6 +29,14 @@ android {
             keyAlias = "androiddebugkey"
             keyPassword = "android"
         }
+        // Play upload key (backed up in 1Password). The password comes from the environment, never a file:
+        //   read -s NASPLAYER_UPLOAD_PASSWORD && export NASPLAYER_UPLOAD_PASSWORD && ./gradlew bundlePlay
+        create("upload") {
+            storeFile = File(System.getProperty("user.home"), ".android/nas-player-upload.jks")
+            storePassword = System.getenv("NASPLAYER_UPLOAD_PASSWORD")
+            keyAlias = "upload"
+            keyPassword = System.getenv("NASPLAYER_UPLOAD_PASSWORD")
+        }
     }
 
     buildTypes {
@@ -36,6 +44,13 @@ android {
             // smbj relies on reflection (event bus, ASN.1); keep the release build unminified.
             isMinifyEnabled = false
             signingConfig = signingConfigs.getByName(if (sharedKey.exists()) "shared" else "debug")
+        }
+        // Same build as release, signed with the upload key: `./gradlew bundlePlay` → app/build/outputs/bundle/play/.
+        // ponytail: same applicationId as the sideloaded build, so a TV can't have both installed at once.
+        create("play") {
+            initWith(getByName("release"))
+            signingConfig = signingConfigs.getByName("upload")
+            matchingFallbacks += "release"
         }
     }
 
@@ -105,4 +120,12 @@ dependencies {
 
     debugImplementation(libs.compose.ui.tooling)
     testImplementation(libs.junit)
+}
+
+tasks.matching { it.name == "validateSigningPlay" }.configureEach {
+    doFirst {
+        check(!System.getenv("NASPLAYER_UPLOAD_PASSWORD").isNullOrEmpty()) {
+            "Set the upload key password first: read -s NASPLAYER_UPLOAD_PASSWORD && export NASPLAYER_UPLOAD_PASSWORD"
+        }
+    }
 }

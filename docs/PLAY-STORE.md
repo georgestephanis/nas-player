@@ -31,15 +31,16 @@ Status as of 2026-11-11. Items marked **Blocker** will get the app rejected or s
 - [x] ~~**Trust-all TLS for WebDAV.**~~ "Accept self-signed HTTPS certificates" used to accept any
   certificate, which Play's security scan flags. It now pins the first certificate the server presents
   and refuses any other.
-- [ ] **Blocker — signing.** Play rejects APKs and bundles signed with a debug key, and new apps must
+- [x] **Signing.** Play rejects APKs and bundles signed with a debug key, and new apps must
   use Play App Signing:
-  - Generate an upload key: `keytool -genkeypair -v -keystore ~/.android/nas-player-upload.jks
-    -alias upload -keyalg RSA -keysize 4096 -validity 10000`. Back it up somewhere safe, off this
-    machine. Losing it means asking Google to reset it.
-  - Read its passwords from an ignored `keystore.properties` (already in `.gitignore`), never from
-    `build.gradle.kts`.
-  - Build an App Bundle with `./gradlew bundleRelease`. Play makes the per-ABI APKs itself; the
-    `splits { abi }` block only affects sideload APKs.
+  - The upload key is `~/.android/nas-player-upload.jks` (alias `upload`), made with
+    `keytool -genkeypair -v -keystore ~/.android/nas-player-upload.jks -alias upload -keyalg RSA
+    -keysize 4096 -validity 10000`. It and its password are backed up in 1Password. Losing it means
+    asking Google to reset it.
+  - Build the App Bundle with
+    `read -s NASPLAYER_UPLOAD_PASSWORD && export NASPLAYER_UPLOAD_PASSWORD && ./gradlew bundlePlay`.
+    The output is `app/build/outputs/bundle/play/app-play.aab`. Play makes the per-ABI APKs itself;
+    the `splits { abi }` block only affects sideload APKs.
 - [ ] **Sideloaded vs Play installs.** The Play-installed app will be signed with Google's key, not
   `nas-player.keystore`, so it can't update over the sideloaded app on your TV, or the other way
   round. Either uninstall once when switching (this loses saved sources and resume positions), or give
