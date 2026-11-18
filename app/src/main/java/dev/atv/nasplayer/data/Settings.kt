@@ -64,6 +64,15 @@ object Settings {
         get() = prefs.getBoolean("showInContinueWatching", true)
         set(v) = prefs.edit().putBoolean("showInContinueWatching", v).apply()
 
+    /** Wrong PIN tries since the last lockout, and when the current lockout ends; kept so a restart doesn't reset them. */
+    var pinMisses: Int
+        get() = prefs.getInt("pinMisses", 0)
+        set(v) = prefs.edit().putInt("pinMisses", v).apply()
+
+    var pinLockedUntil: Long
+        get() = prefs.getLong("pinLockedUntil", 0)
+        set(v) = prefs.edit().putLong("pinLockedUntil", v).apply()
+
     var showAllFiles: Boolean
         get() = prefs.getBoolean("showAllFiles", false)
         set(v) = prefs.edit().putBoolean("showAllFiles", v).apply()

@@ -91,13 +91,15 @@ fun HomeScreen(
         ContextCompat.registerReceiver(context, receiver, UsbDrives.changes, ContextCompat.RECEIVER_NOT_EXPORTED)
         onDispose { context.unregisterReceiver(receiver) }
     }
-    val continueWatching = remember(resumeVersion, servers, drives, Pin.unlocked) {
-        ResumeStore.continueWatching { e -> (servers + drives).any { it.id == e.serverId && it.inContinueWatching && !Pin.needed(it) } }
+    var showHidden by remember { mutableStateOf(false) }
+    val continueWatching = remember(resumeVersion, servers, drives, Pin.unlocked, showHidden) {
+        ResumeStore.continueWatching { e ->
+            (servers + drives).any { it.id == e.serverId && it.inContinueWatching && !Pin.needed(it) && (showHidden || !it.hidden) }
+        }
     }
     val discovered by remember { NetworkDiscovery.discover(context) }.collectAsState(initial = emptyList())
     val unsaved = discovered.filter { d -> servers.none { it.host.equals(d.host, true) || it.host.equals(d.name, true) } }
     val firstFocus = remember { FocusRequester() }
-    var showHidden by remember { mutableStateOf(false) }
     val anyHidden = servers.any { it.hidden }
     val visible = if (showHidden) servers else servers.filterNot { it.hidden }
 

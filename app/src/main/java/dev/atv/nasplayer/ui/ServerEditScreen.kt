@@ -209,7 +209,7 @@ fun ServerEditScreen(existingId: String?, prefill: ServerConfig?, onDone: () -> 
             selected = false,
             onClick = { hidden = !hidden },
             headlineContent = { Text("Hide on home screen") },
-            supportingContent = { Text("Keeps it behind the More tile under Sources.") },
+            supportingContent = { Text("Keeps it, and its files in Continue watching, behind the More tile under Sources.") },
             trailingContent = { Switch(checked = hidden, onCheckedChange = { hidden = it }) },
             modifier = Modifier.widthIn(max = 720.dp),
         )
@@ -275,11 +275,11 @@ fun ServerEditScreen(existingId: String?, prefill: ServerConfig?, onDone: () -> 
                 if (existing != null) {
                     OutlinedButton(onClick = {
                         if (confirmClear) { ResumeStore.clearServer(existing.id); confirmClear = false; status = "Resume points and watched marks cleared." }
-                        else { confirmClear = true; status = "Press again to forget every resume point and watched mark in this source." }
+                        else { confirmClear = true; confirmDelete = false; status = "Press again to forget every resume point and watched mark in this source." }
                     }) { Text(if (confirmClear) "Confirm clear" else "Clear resume points") }
                     OutlinedButton(onClick = {
                         if (confirmDelete) { ServerRepository.delete(existing.id); SmbSessionPool.invalidate(existing.id); onDone() }
-                        else { confirmDelete = true; status = "Press Remove again to confirm." }
+                        else { confirmDelete = true; confirmClear = false; status = "Press Remove again to confirm." }
                     }) { Text(if (confirmDelete) "Confirm remove" else "Remove") }
                 }
             }

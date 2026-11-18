@@ -84,7 +84,9 @@ fun ImageHost(
     val fade = remember(session) { Animatable(if (path == shown) 1f else 0f) }
     // Fixed size, so the prefetch and the displayed request hit the same memory-cache entry.
     val screen = remember { context.resources.displayMetrics.let { Size(it.widthPixels, it.heightPixels) } }
-    fun imageRequest(p: String) = ImageRequest.Builder(context).data(FullImage(server.id, p)).size(screen).scale(Scale.FIT).build()
+    // FullImage has no Coil Keyer, so without memoryCacheKey nothing is cached and the prefetch is wasted.
+    fun imageRequest(p: String) = ImageRequest.Builder(context).data(FullImage(server.id, p))
+        .memoryCacheKey("full|${server.id}|$p").size(screen).scale(Scale.FIT).build()
     val focus = remember { FocusRequester() }
     val recorder = remember(session) { PlaybackRecorder(server.name, path, Engine.EXO) }
 

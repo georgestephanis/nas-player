@@ -20,22 +20,21 @@ object Pin {
 
     /** Ids of sources unlocked this visit. Replaced, never mutated, so it works as a Compose key. */
     var unlocked by mutableStateOf(emptySet<String>())
-    // ponytail: one miss counter for all sources, so switching sources doesn't buy more tries.
-    private var misses = 0
-    private var lockedUntil = 0L
+    // ponytail: one miss counter for all sources (persisted in Settings), so switching sources doesn't buy more tries.
 
     fun needed(server: ServerConfig): Boolean = server.locked && server.id !in unlocked
 
     fun unlock(id: String) { unlocked = unlocked + id }
 
     /** Seconds left before another try is allowed, or 0. */
-    fun waitSeconds(now: Long = System.currentTimeMillis()): Long = ((lockedUntil - now + 999) / 1000).coerceAtLeast(0)
+    fun waitSeconds(now: Long = System.currentTimeMillis()): Long = ((Settings.pinLockedUntil - now + 999) / 1000).coerceAtLeast(0)
 
     fun check(server: ServerConfig, pin: String): Boolean {
         if (waitSeconds() > 0) return false
         val ok = pinMatches(server.pinHash, pin)
-        if (ok) { misses = 0; unlock(server.id) }
-        else if (++misses >= MAX_TRIES) { misses = 0; lockedUntil = System.currentTimeMillis() + LOCKOUT_MS }
+        if (ok) { Settings.pinMisses = 0; unlock(server.id) }
+        else if (Settings.pinMisses + 1 >= MAX_TRIES) { Settings.pinMisses = 0; Settings.pinLockedUntil = System.currentTimeMillis() + LOCKOUT_MS }
+        else Settings.pinMisses++
         return ok
     }
 }

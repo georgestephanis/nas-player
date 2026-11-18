@@ -53,6 +53,12 @@ import dev.atv.nasplayer.ui.formatDuration
 class PlayerActivity : ComponentActivity() {
     private var request: PlaybackRequest? = null
 
+    /** Back from Recents after a relock: a locked source's player closes rather than carry on. */
+    override fun onStart() {
+        super.onStart()
+        request?.let { ServerRepository.get(it.serverId) }?.let { if (dev.atv.nasplayer.data.Pin.needed(it)) finish() }
+    }
+
     override fun onDestroy() {
         if (isFinishing) PlaybackRequest.release(request)
         super.onDestroy()

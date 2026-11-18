@@ -12,6 +12,7 @@ import androidx.compose.runtime.mutableStateListOf
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
 import androidx.tv.material3.MaterialTheme
+import dev.atv.nasplayer.data.Pin
 import dev.atv.nasplayer.data.ServerConfig
 import dev.atv.nasplayer.ui.BrowserScreen
 import dev.atv.nasplayer.ui.HomeScreen
@@ -49,6 +50,14 @@ private fun App(onExit: () -> Unit) {
     BackHandler(enabled = stack.size > 1) { pop() }
     val gate = remember { dev.atv.nasplayer.ui.PinGate() }
     gate.Prompt()
+    // On relock, drop back below any open screen of a source that now needs its PIN.
+    androidx.compose.runtime.LaunchedEffect(Pin.unlocked) {
+        val i = stack.indexOfFirst { s ->
+            val id = (s as? Screen.Browse)?.serverId ?: (s as? Screen.Edit)?.existingId
+            id != null && dev.atv.nasplayer.data.ServerRepository.get(id)?.let(Pin::needed) == true
+        }
+        if (i > 0) stack.removeRange(i, stack.size)
+    }
 
     when (val screen = stack.last()) {
         Screen.Home -> HomeScreen(
