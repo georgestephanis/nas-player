@@ -1,5 +1,7 @@
 package dev.atv.nasplayer.playback
 
+import dev.atv.nasplayer.BuildConfig
+
 import android.content.Context
 import android.net.Uri
 import androidx.compose.foundation.layout.fillMaxSize
@@ -41,7 +43,12 @@ object VlcRuntime {
                 "--avcodec-skiploopfilter=1", // keeps software-decoded HEVC/VC-1 real-time on weak SoCs
                 "--subsdec-encoding=UTF-8",
                 "--freetype-rel-fontsize=16",
-            ),
+            ).apply {
+                // VLC's error messages can include the stream URL, and that carries the SMB/WebDAV
+                // password (VlcMedia). Logcat only reaches adb and bug reports, but keep it out of
+                // release builds anyway.
+                if (!BuildConfig.DEBUG) add("--quiet")
+            },
         ).also { instance = it }
     }
 }
@@ -57,6 +64,7 @@ fun VlcHost(
     onPrevious: () -> Unit,
     onError: (String) -> Unit,
     onExit: () -> Unit,
+    selection: androidx.compose.runtime.MutableState<Int?>,
 ) {
     val context = LocalContext.current
     val libVlc = remember { VlcRuntime.get(context) }
@@ -139,7 +147,10 @@ fun VlcHost(
         val media = Media(libVlc, Uri.parse(target.url))
         target.options.forEach(media::addOption)
         media.addOption(":network-caching=3000")
-        media.setHWDecoderEnabled(true, false)
+        media.setHWDecoderEnabled(!session.softwareDecode, false)
+        // These files have no index, so a seek lands between keyframes; drop the frames decoded from
+        // missing references (grey smear) and hold the last good one until the next keyframe.
+        if (session.softwareDecode) media.addOption(":no-avcodec-corrupted")
         if (session.startMs > 0) media.addOption(":start-time=${session.startMs / 1000.0}")
         Subtitles.sidecarsFor(name, request.siblings).forEach { sub ->
             val url = VlcMedia.target(server, joinPath(request.folder, sub.name)).url
@@ -172,6 +183,7 @@ fun VlcHost(
         onPrevious = { if (mp.time > 5_000) mp.setTime(0) else onPrevious() },
         tracks = ::tracks,
         onExit = onExit,
+        selection = selection,
     ) {
         AndroidView(
             modifier = Modifier.fillMaxSize(),

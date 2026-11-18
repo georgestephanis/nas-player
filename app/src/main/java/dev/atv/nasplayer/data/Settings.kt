@@ -23,6 +23,11 @@ object Settings {
         get() = runCatching { EnginePreference.valueOf(prefs.getString("engine", null)!!) }.getOrDefault(EnginePreference.AUTO)
         set(v) = prefs.edit().putString("engine", v.name).apply()
 
+    /** Whether the USB media permission prompt has been shown, to tell "never asked" from "don't ask again". */
+    var usbAccessAsked: Boolean
+        get() = prefs.getBoolean("usbAccessAsked", false)
+        set(v) = prefs.edit().putBoolean("usbAccessAsked", v).apply()
+
     var autoPlayNext: Boolean
         get() = prefs.getBoolean("autoPlayNext", true)
         set(v) = prefs.edit().putBoolean("autoPlayNext", v).apply()
@@ -48,6 +53,25 @@ object Settings {
     var slideshowSeconds: Int
         get() = prefs.getInt("slideshowSeconds", 6)
         set(v) = prefs.edit().putInt("slideshowSeconds", v).apply()
+
+    /** Default for sources that don't override [ServerConfig.rememberPositions]. */
+    var rememberPositions: Boolean
+        get() = prefs.getBoolean("rememberPositions", true)
+        set(v) = prefs.edit().putBoolean("rememberPositions", v).apply()
+
+    /** Default for sources that don't override [ServerConfig.showInContinueWatching]. */
+    var showInContinueWatching: Boolean
+        get() = prefs.getBoolean("showInContinueWatching", true)
+        set(v) = prefs.edit().putBoolean("showInContinueWatching", v).apply()
+
+    /** Wrong PIN tries since the last lockout, and when the current lockout ends; kept so a restart doesn't reset them. */
+    var pinMisses: Int
+        get() = prefs.getInt("pinMisses", 0)
+        set(v) = prefs.edit().putInt("pinMisses", v).apply()
+
+    var pinLockedUntil: Long
+        get() = prefs.getLong("pinLockedUntil", 0)
+        set(v) = prefs.edit().putLong("pinLockedUntil", v).apply()
 
     var showAllFiles: Boolean
         get() = prefs.getBoolean("showAllFiles", false)

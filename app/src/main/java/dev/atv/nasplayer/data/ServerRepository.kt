@@ -51,6 +51,12 @@ object ServerRepository {
         persist(list)
     }
 
+    /** Records the first self-signed certificate a saved server presents. */
+    @Synchronized
+    fun pinCertificate(id: String, sha256: String) {
+        _servers.value.firstOrNull { it.id == id && it.pinnedCert.isEmpty() }?.let { save(it.copy(pinnedCert = sha256)) }
+    }
+
     fun delete(id: String) {
         persist(_servers.value.filterNot { it.id == id })
         ResumeStore.clearServer(id)
@@ -77,7 +83,12 @@ object ServerRepository {
                 put("password", storedPassword(s.password, unreadPasswords[s.id], SecretBox::encrypt))
                 put("domain", s.domain)
                 put("allowInsecureTls", s.allowInsecureTls)
-                put("showInContinueWatching", s.showInContinueWatching)
+                put("pinnedCert", s.pinnedCert)
+                // New keys, absent when following the default; the old always-written key reads as below.
+                s.showInContinueWatching?.let { put("continueWatching", it) }
+                s.rememberPositions?.let { put("rememberPositions", it) }
+                put("hidden", s.hidden)
+                put("pinHash", s.pinHash)
             })
             if (s.password.isNotEmpty()) unreadPasswords.remove(s.id)
         }
@@ -103,7 +114,16 @@ object ServerRepository {
                     password = SecretBox.decrypt(stored) ?: run { unreadPasswords[id] = stored; "" },
                     domain = o.optString("domain"),
                     allowInsecureTls = o.optBoolean("allowInsecureTls"),
-                    showInContinueWatching = o.optBoolean("showInContinueWatching", true),
+                    pinnedCert = o.optString("pinnedCert"),
+                    showInContinueWatching = when {
+                        o.has("continueWatching") -> o.getBoolean("continueWatching")
+                        // Older saves always wrote this; true was the default, so only false is an override.
+                        !o.optBoolean("showInContinueWatching", true) -> false
+                        else -> null
+                    },
+                    rememberPositions = if (o.has("rememberPositions")) o.getBoolean("rememberPositions") else null,
+                    hidden = o.optBoolean("hidden"),
+                    pinHash = o.optString("pinHash"),
                 )
             }
         } catch (e: Exception) {

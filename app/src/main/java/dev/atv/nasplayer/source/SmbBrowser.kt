@@ -16,7 +16,9 @@ class SmbBrowser(override val server: ServerConfig) : MediaBrowser {
         try {
             doList(path)
         } catch (e: Exception) {
-            // Stale connection (NAS slept, Wi-Fi blipped): reconnect once.
+            // Stale connection (NAS slept, Wi-Fi blipped): reconnect once. A missing folder or a
+            // refused login is the server's answer; reconnecting won't change it.
+            if (!SmbSessionPool.isConnectionError(e)) throw e
             SmbSessionPool.invalidate(server.id)
             doList(path)
         }

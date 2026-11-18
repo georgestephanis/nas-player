@@ -33,6 +33,8 @@ fun SettingsScreen(onOpenLog: () -> Unit) {
     var thumbs by remember { mutableStateOf(Settings.showThumbnails) }
     var slide by remember { mutableStateOf(Settings.slideshowSeconds) }
     var listSize by remember { mutableStateOf(Settings.listSize) }
+    var rememberPos by remember { mutableStateOf(Settings.rememberPositions) }
+    var continueWatching by remember { mutableStateOf(Settings.showInContinueWatching) }
     val context = androidx.compose.ui.platform.LocalContext.current
     val first = remember { FocusRequester() }
     val w = Modifier.widthIn(max = 760.dp)
@@ -59,6 +61,27 @@ fun SettingsScreen(onOpenLog: () -> Unit) {
                     modifier = if (i == 0) w.focusRequester(first) else w,
                 )
             }
+        }
+        item { Text("Resume", style = MaterialTheme.typography.titleMedium) }
+        item {
+            ListItem(
+                selected = false,
+                onClick = { rememberPos = !rememberPos; Settings.rememberPositions = rememberPos },
+                headlineContent = { Text("Remember where I left off") },
+                supportingContent = { Text("Default for every source; each source can override it in its settings.") },
+                trailingContent = { Switch(checked = rememberPos, onCheckedChange = null) },
+                modifier = w,
+            )
+        }
+        item {
+            ListItem(
+                selected = false,
+                onClick = { continueWatching = !continueWatching; Settings.showInContinueWatching = continueWatching },
+                headlineContent = { Text("Show in Continue watching") },
+                supportingContent = { Text("Default for every source; each source can override it in its settings.") },
+                trailingContent = { Switch(checked = continueWatching, onCheckedChange = null) },
+                modifier = w,
+            )
         }
         item { Text("Browsing", style = MaterialTheme.typography.titleMedium) }
         item {
@@ -156,4 +179,5 @@ fun SettingsScreen(onOpenLog: () -> Unit) {
         }
     }
     LaunchedEffect(Unit) { runCatching { first.requestFocus() } }
+
 }

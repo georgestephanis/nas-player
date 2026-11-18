@@ -16,6 +16,7 @@ import androidx.media3.common.C
 import androidx.media3.common.MediaItem
 import androidx.media3.common.MediaMetadata
 import androidx.media3.common.PlaybackException
+import androidx.media3.common.Timeline
 import androidx.media3.common.Player
 import androidx.media3.common.TrackSelectionOverride
 import androidx.media3.common.Tracks
@@ -37,9 +38,10 @@ fun ExoHost(
     onEnded: () -> Unit,
     onNext: () -> Unit,
     onPrevious: () -> Unit,
-    onFallback: (positionMs: Long, reason: String) -> Unit,
+    onFallback: (positionMs: Long, reason: String, softwareDecode: Boolean) -> Unit,
     onError: (String) -> Unit,
     onExit: () -> Unit,
+    selection: androidx.compose.runtime.MutableState<Int?>,
 ) {
     val context = LocalContext.current
     val player = remember(session) { ExoFactory.create(context) }
@@ -95,6 +97,14 @@ fun ExoHost(
         }
         val listener = object : Player.Listener {
             override fun onPlaybackStateChanged(state: Int) {
+                if (state == Player.STATE_READY && !everReady && session.startMs > 0 && !handedOff &&
+                    !player.isCurrentMediaItemSeekable
+                ) {
+                    // Resuming a file ExoPlayer can't seek would silently start it from 0.
+                    handedOff = true
+                    recorder.finish(Outcome.FELL_BACK, "not seekable in ExoPlayer")
+                    onFallback(session.startMs, "not seekable", softwareDecodeOk(player))
+                }
                 if (state == Player.STATE_READY) everReady = true
                 if (state == Player.STATE_BUFFERING && everReady) recorder.rebuffers++
                 if (state == Player.STATE_ENDED && !handedOff) {
@@ -111,7 +121,7 @@ fun ExoHost(
                 val reason = error.errorCodeName.removePrefix("ERROR_CODE_").lowercase().replace('_', ' ')
                 if (EngineChooser.shouldFallBack(error)) {
                     recorder.finish(Outcome.FELL_BACK, reason + (error.cause?.message?.let { ": $it" } ?: ""))
-                    onFallback(pos, reason)
+                    onFallback(pos, reason, false)
                 } else {
                     recorder.finish(Outcome.FAILED, describe(error))
                     onError(describe(error))
@@ -129,7 +139,7 @@ fun ExoHost(
                         "no video track recognised by ExoPlayer"
                     } else "unsupported codec"
                     recorder.finish(Outcome.FELL_BACK, why)
-                    onFallback(player.currentPosition.coerceAtLeast(session.startMs), "unsupported codec")
+                    onFallback(player.currentPosition.coerceAtLeast(session.startMs), "unsupported codec", false)
                 }
             }
         }
@@ -169,7 +179,7 @@ fun ExoHost(
             if (stall.tick(player.isPlaying, player.videoDecoderCounters?.renderedOutputBufferCount)) {
                 handedOff = true
                 recorder.finish(Outcome.FELL_BACK, "video stopped rendering")
-                onFallback(player.currentPosition.coerceAtLeast(session.startMs), "video stopped")
+                onFallback(player.currentPosition.coerceAtLeast(session.startMs), "video stopped", false)
             }
         }
     }
@@ -208,14 +218,29 @@ fun ExoHost(
         setPlaying = { player.playWhenReady = it; playing = it },
         seekBy = { delta ->
             // currentPosition already reflects a pending seek, so quick presses add up.
-            val end = if (player.duration > 0) player.duration - 1_000 else Long.MAX_VALUE
-            player.seekTo((player.currentPosition + delta).coerceIn(0, end))
-            position = player.currentPosition
+            val known = player.duration > 0
+            val end = if (known) player.duration - 1_000 else Long.MAX_VALUE
+            val target = (player.currentPosition + delta).coerceIn(0, end)
+            if (timelineLoaded(player) && !player.isCurrentMediaItemSeekable) {
+                // Fragmented MP4 with no sidx (and other index-less files): ExoPlayer turns every seek
+                // into a seek to 0. VLC can seek these, so hand off at the target position. With no
+                // known duration the target could be past the end (VLC would skip to the next file),
+                // so hand off where we are and let VLC, which knows the length, do the seek.
+                if (!handedOff) {
+                    handedOff = true
+                    recorder.finish(Outcome.FELL_BACK, "not seekable in ExoPlayer")
+                    onFallback(if (known) target else player.currentPosition, "not seekable", softwareDecodeOk(player))
+                }
+            } else {
+                player.seekTo(target)
+                position = player.currentPosition
+            }
         },
         onNext = onNext,
         onPrevious = { if (player.currentPosition > 5_000) player.seekTo(0) else onPrevious() },
         tracks = { exoTrackChoices(player) },
         onExit = onExit,
+        selection = selection,
     ) {
         AndroidView(
             modifier = Modifier.fillMaxSize(),
@@ -291,3 +316,16 @@ private fun describe(e: PlaybackException): String = when (e.errorCode) {
     PlaybackException.ERROR_CODE_IO_BAD_HTTP_STATUS -> "The server refused the request (${e.cause?.message ?: "HTTP error"})."
     else -> (e.cause?.message ?: e.message ?: e.errorCodeName)
 }
+
+/** Until the file is parsed, the timeline is a placeholder that reports every item as unseekable. */
+private fun timelineLoaded(player: Player): Boolean {
+    val timeline = player.currentTimeline
+    return !timeline.isEmpty && !timeline.getWindow(player.currentMediaItemIndex, Timeline.Window()).isPlaceholder
+}
+
+/**
+ * VLC's hardware decoder on the Streamer wedges when a seek flushes it, so unseekable files go to VLC's
+ * software decoder. ponytail: a 1080p cutoff by height, since 4K in software can't keep up on the Streamer;
+ * above it, keep hardware and accept the seek freeze (tools/index-mp4.py fixes those files at the source).
+ */
+private fun softwareDecodeOk(player: Player): Boolean = (player.videoSize.height.takeIf { it > 0 } ?: 0) <= 1080

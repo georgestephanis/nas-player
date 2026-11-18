@@ -6,3 +6,12 @@ local.properties
 .DS_Store
 .kotlin/
 conversation-log.jsonl
+
+# Signing keys and their passwords never go in the repo (keys live in ~/.android).
+*.jks
+*.keystore
+*.p12
+*.pem
+*.pepk
+keystore.properties
+signing.properties

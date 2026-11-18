@@ -53,6 +53,12 @@ import dev.atv.nasplayer.ui.formatDuration
 class PlayerActivity : ComponentActivity() {
     private var request: PlaybackRequest? = null
 
+    /** Back from Recents after a relock: a locked source's player closes rather than carry on. */
+    override fun onStart() {
+        super.onStart()
+        request?.let { ServerRepository.get(it.serverId) }?.let { if (dev.atv.nasplayer.data.Pin.needed(it)) finish() }
+    }
+
     override fun onDestroy() {
         if (isFinishing) PlaybackRequest.release(request)
         super.onDestroy()
@@ -77,7 +83,7 @@ class PlayerActivity : ComponentActivity() {
 }
 
 /** One mounted engine instance; changing any field tears the old player down and starts a new one. */
-data class PlaybackSession(val engine: Engine, val index: Int, val startMs: Long, val nonce: Int)
+data class PlaybackSession(val engine: Engine, val index: Int, val startMs: Long, val nonce: Int, val softwareDecode: Boolean = false)
 
 @androidx.annotation.OptIn(UnstableApi::class)
 @Composable
@@ -88,20 +94,22 @@ fun PlayerScreen(server: ServerConfig, request: PlaybackRequest, onExit: () -> U
     var error by remember { mutableStateOf<Pair<PlaybackSession, String>?>(null) }
     var nonce by remember { mutableIntStateOf(0) }
     var slideshow by remember { mutableStateOf(false) }
+    // The bar button chosen in the video controls; outlives each file's player so Next, Next works.
+    val selection = remember { mutableStateOf<Int?>(null) }
 
     fun pathOf(i: Int) = joinPath(request.folder, request.items[i])
     fun isImage(i: Int) = dev.atv.nasplayer.source.MediaTypes.kindOf(request.items[i]) == dev.atv.nasplayer.source.MediaKind.IMAGE
     fun engineFor(i: Int) = request.forcedEngine ?: EngineChooser.initialEngine(request.items[i], Settings.enginePreference)
 
-    fun start(i: Int, startMs: Long, engine: Engine = engineFor(i)) {
+    fun start(i: Int, startMs: Long, engine: Engine = engineFor(i), softwareDecode: Boolean = false) {
         error = null
         resumePrompt = null
-        session = PlaybackSession(engine, i, startMs, ++nonce)
+        session = PlaybackSession(engine, i, startMs, ++nonce, softwareDecode)
     }
 
     fun begin(i: Int, ask: Boolean) {
         if (isImage(i)) { start(i, 0); return }
-        val saved = ResumeStore.get(server.id, pathOf(i))?.takeIf { !it.watched && it.positionMs > 15_000 }
+        val saved = ResumeStore.get(server.id, pathOf(i))?.takeIf { server.remembersPositions && !it.watched && it.positionMs > 15_000 }
         when {
             saved == null -> start(i, 0)
             ask -> { session = null; resumePrompt = i to saved }
@@ -121,7 +129,7 @@ fun PlayerScreen(server: ServerConfig, request: PlaybackRequest, onExit: () -> U
 
     fun previous() {
         val s = session ?: return
-        if (s.index > 0) begin(s.index - 1, ask = false) else if (!isImage(s.index)) start(s.index, 0, s.engine)
+        if (s.index > 0) begin(s.index - 1, ask = false) else if (!isImage(s.index)) start(s.index, 0, s.engine, s.softwareDecode)
     }
 
     LaunchedEffect(Unit) { begin(request.index, ask = true) }
@@ -130,12 +138,10 @@ fun PlayerScreen(server: ServerConfig, request: PlaybackRequest, onExit: () -> U
         val s = session
         if (s != null && error == null) {
             val onProgress: (Long, Long) -> Unit = { pos, dur ->
-                ResumeStore.save(server.id, request.folder, request.items[s.index], pos, dur)
+                if (server.remembersPositions) ResumeStore.save(server.id, request.folder, request.items[s.index], pos, dur)
             }
-            // A session is one mounted player: without the key, the next file reuses the old AndroidView,
-            // which stays bound to the released player and never gets the new one.
-            key(s) { when {
-                isImage(s.index) -> dev.atv.nasplayer.playback.ImageHost(
+            // Photos share one mounted viewer, so the last photo stays up while the next fades in.
+            if (isImage(s.index)) dev.atv.nasplayer.playback.ImageHost(
                     server = server,
                     request = request,
                     session = s,
@@ -149,6 +155,9 @@ fun PlayerScreen(server: ServerConfig, request: PlaybackRequest, onExit: () -> U
                     },
                     onExit = onExit,
                 )
+            // A session is one mounted player: without the key, the next file reuses the old AndroidView,
+            // which stays bound to the released player and never gets the new one.
+            else key(s) { when {
                 s.engine == Engine.EXO -> ExoHost(
                     server = server,
                     request = request,
@@ -157,12 +166,13 @@ fun PlayerScreen(server: ServerConfig, request: PlaybackRequest, onExit: () -> U
                     onEnded = { next(auto = true) },
                     onNext = { next(auto = false) },
                     onPrevious = ::previous,
-                    onFallback = { pos, reason ->
+                    onFallback = { pos, reason, softwareDecode ->
                         Toast.makeText(context, "Switching to VLC engine ($reason)", Toast.LENGTH_SHORT).show()
-                        start(s.index, pos, Engine.VLC)
+                        start(s.index, pos, Engine.VLC, softwareDecode)
                     },
                     onError = { msg -> error = s to msg },
                     onExit = onExit,
+                    selection = selection,
                 )
                 else -> VlcHost(
                     server = server,
@@ -174,6 +184,7 @@ fun PlayerScreen(server: ServerConfig, request: PlaybackRequest, onExit: () -> U
                     onPrevious = ::previous,
                     onError = { msg -> error = s to msg },
                     onExit = onExit,
+                    selection = selection,
                 )
             } }
         }
@@ -194,7 +205,7 @@ fun PlayerScreen(server: ServerConfig, request: PlaybackRequest, onExit: () -> U
             ChoicePanel(
                 title = "Can't play ${request.items[failed.index]}",
                 message = msg,
-                primary = "Retry" to { start(failed.index, failed.startMs, failed.engine) },
+                primary = "Retry" to { start(failed.index, failed.startMs, failed.engine, failed.softwareDecode) },
                 secondary = otherLabel to { start(failed.index, failed.startMs, other) },
                 tertiary = if (failed.index + 1 < request.items.size) "Next file" to { begin(failed.index + 1, ask = false) } else null,
                 onBack = onExit,

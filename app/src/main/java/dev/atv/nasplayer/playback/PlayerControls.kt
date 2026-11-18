@@ -65,7 +65,8 @@ private class BarButton(val icon: ImageVector, val label: String, val enabled: B
 /**
  * Remote handling and the bottom bar, shared by both engines. The video is never dimmed: only the bar
  * itself has a background. ◀ ▶ always seek, whether or not the bar is showing; ▼ moves onto the buttons,
- * where ◀ ▶ choose one until ▲ or Back moves off again.
+ * where ◀ ▶ choose one until ▲ moves off again. Back hides the bar, or leaves the player when it is hidden.
+ * [selection] is the chosen button, owned by the player screen so Next/Previous stay chosen on the next file.
  */
 @Composable
 internal fun PlayerControls(
@@ -83,11 +84,12 @@ internal fun PlayerControls(
     onPrevious: () -> Unit,
     tracks: () -> List<TrackChoice>,
     onExit: () -> Unit,
+    selection: androidx.compose.runtime.MutableState<Int?>,
     video: @Composable BoxScope.() -> Unit,
 ) {
     var barShown by remember { mutableStateOf(true) }
     var poke by remember { mutableIntStateOf(0) }
-    var selected by remember { mutableStateOf<Int?>(null) }
+    var selected by selection
     var trackMenu by remember { mutableStateOf<List<TrackChoice>?>(null) }
     val focus = remember { FocusRequester() }
 
@@ -115,12 +117,10 @@ internal fun PlayerControls(
         if (trackMenu == null) runCatching { focus.requestFocus() }
     }
 
+    // A bar that can be hidden is hidden first; one that can't (paused, buffering) doesn't take an extra press.
     BackHandler {
-        when {
-            selected != null -> { selected = null; show() }
-            barShown && playing && !keepBarVisible -> barShown = false
-            else -> onExit()
-        }
+        if (barShown && playing && !buffering && !keepBarVisible) { barShown = false; selected = null }
+        else { selected = null; onExit() }
     }
 
     Box(
@@ -154,8 +154,7 @@ internal fun PlayerControls(
                     AndroidKeyEvent.KEYCODE_DPAD_DOWN -> { selected = row ?: playPauseIndex; show(); true }
                     AndroidKeyEvent.KEYCODE_INFO -> { show(); true }
                     AndroidKeyEvent.KEYCODE_DPAD_UP -> {
-                        if (row != null) { selected = null; show() } else trackMenu = tracks()
-                        true
+                        selected = null; show(); true
                     }
                     AndroidKeyEvent.KEYCODE_MENU, AndroidKeyEvent.KEYCODE_CAPTIONS -> { trackMenu = tracks(); true }
                     AndroidKeyEvent.KEYCODE_MEDIA_NEXT, AndroidKeyEvent.KEYCODE_CHANNEL_UP -> { next(); true }
@@ -229,7 +228,7 @@ internal fun PlayerControls(
                                 if (engineLabel.isNotEmpty()) add(engineLabel)
                                 add(
                                     selected?.let { "${buttons[it].label}   ◀ ▶ choose   OK select   ▲ back" }
-                                        ?: "◀ −10s   ▶ +30s   OK play/pause   ▼ buttons   ▲ audio & subtitles",
+                                        ?: "◀ −10s   ▶ +30s   OK play/pause   ▼ buttons",
                                 )
                             }.joinToString(" · "),
                             color = Color.White.copy(alpha = 0.7f),

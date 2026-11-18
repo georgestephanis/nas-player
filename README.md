@@ -31,7 +31,7 @@ An Android TV / Google TV app for watching video, listening to music and viewing
 - When adding a source, the form suggests servers it knows about, saved logins for that server, and folders other sources use. **Browse folders** lists the server's folders using the login in the form.
 - **Show in Continue watching** can be turned off per source. Your place in its files is still remembered.
 - **Test connection** before saving. Hold OK on a source to edit or remove it.
-- **USB drives** appear under "Local drives" while plugged in. The first time, the app opens Android's *All files access* screen: turn on NAS Player there and go back. Google TV has no document picker to use instead. The app only reads from drives, though Android's wording for this permission also covers changing and deleting files.
+- **USB drives** appear under "Local drives" while plugged in. The first time you open one, Android asks for access to music, photos and videos. The app only ever sees media files and folders (plus subtitles) on the drive, and only reads them.
 
 ### Browsing
 - **Thumbnails** for every row, generated once and cached on the device:
@@ -67,7 +67,7 @@ Settings → Playback log records every attempt: the container, each track's cod
 | Video & music | ◀ / ▶ | Back 10 s / forward 30 s, with or without the bar showing |
 | | OK | Play / pause |
 | | ▼ | Move onto the bar's buttons (previous, back, play, forward, next, tracks); ◀ ▶ choose, OK selects, ▲ or Back leaves |
-| | ▲ | Audio and subtitle tracks |
+| | Menu / Captions | Audio and subtitle tracks (also the bar's CC button) |
 | Photos | ◀ / ▶ | Previous / next item in the folder |
 | | OK | Start / stop slideshow |
 | | ▼ | Show filename and position |
@@ -131,7 +131,7 @@ More on the code layout and device testing: [docs/ARCHITECTURE.md](docs/ARCHITEC
 ## NAS setup tips
 
 - **Use SMB.** With signing and encryption off it streams at link speed; reads are pipelined with SMB 3. NFS has no good Android client library, and WebDAV is slower and makes seeking harder for VLC.
-- **WebDAV:** enter the full base URL (e.g. `http://nas.local:8080/media`). Self-signed HTTPS can be allowed per source.
+- **WebDAV:** enter the full base URL (e.g. `http://nas.local:8080/media`). Self-signed HTTPS can be allowed per source: the app remembers the first certificate the server presents and refuses any other after that.
 - **Artwork:** put `poster.jpg` (or `folder.jpg` / `cover.jpg`) in movie, show and album folders, the same layout Plex, Kodi and Jellyfin use, and it becomes the thumbnail.
 - **Credentials** are kept in app-private storage (backups disabled) and encrypted with the Android Keystore. Some TV firmware has a keystore service that hangs; if it doesn't answer within two seconds the password is stored unencrypted in that same private storage and encrypted on a later save once the keystore responds. If a saved password can't be decrypted, it's left in place rather than overwritten, so it isn't lost.
 

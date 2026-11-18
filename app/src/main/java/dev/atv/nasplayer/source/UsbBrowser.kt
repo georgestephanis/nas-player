@@ -10,16 +10,20 @@ import android.net.Uri
 import android.os.Build
 import android.os.Environment
 import android.os.storage.StorageManager
-import android.provider.Settings
 import android.widget.Toast
 import dev.atv.nasplayer.data.ServerConfig
+import dev.atv.nasplayer.data.Settings
 import dev.atv.nasplayer.data.ServerType
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import java.io.File
 import java.io.IOException
 
-/** Reads a mounted drive with plain file access, which needs [UsbDrives.hasAccess]. */
+/**
+ * Reads a mounted drive by path, which needs [UsbDrives.hasAccess]. On Android 11+ path access goes through
+ * MediaStore, so only folders and files of the granted media types are listed, plus subtitles (seen on
+ * API 34; untested on 11 and 12). Other files are invisible.
+ */
 class UsbBrowser(override val server: ServerConfig) : MediaBrowser {
 
     override val rootPath: String = "/"
@@ -69,21 +73,29 @@ object UsbDrives {
 
     fun get(id: String): ServerConfig? = if (id.startsWith("usb-")) list().firstOrNull { it.id == id } else null
 
-    fun hasAccess(): Boolean = if (Build.VERSION.SDK_INT >= 30) {
-        Environment.isExternalStorageManager()
+    private val permissions = if (Build.VERSION.SDK_INT >= 33) {
+        arrayOf(Manifest.permission.READ_MEDIA_VIDEO, Manifest.permission.READ_MEDIA_AUDIO, Manifest.permission.READ_MEDIA_IMAGES)
     } else {
-        app.checkSelfPermission(Manifest.permission.READ_EXTERNAL_STORAGE) == PackageManager.PERMISSION_GRANTED
+        arrayOf(Manifest.permission.READ_EXTERNAL_STORAGE)
     }
 
-    /** Asks once per install; the user comes back to the home screen and opens the drive again. */
+    /** Any one media type is enough to open a drive; files of types the user declined just don't show. */
+    fun hasAccess(): Boolean = permissions.any { app.checkSelfPermission(it) == PackageManager.PERMISSION_GRANTED }
+
+    /**
+     * The user comes back to the home screen and opens the drive again. Android stops showing the prompt
+     * after two refusals, and then only the app's settings page can grant it.
+     */
     fun requestAccess(activity: Activity) {
-        if (Build.VERSION.SDK_INT >= 30) {
-            Toast.makeText(activity, "Turn on NAS Player here to read USB drives, then go back", Toast.LENGTH_LONG).show()
-            activity.startActivity(
-                Intent(Settings.ACTION_MANAGE_APP_ALL_FILES_ACCESS_PERMISSION, Uri.parse("package:${activity.packageName}"))
-            )
+        val canAsk = !Settings.usbAccessAsked || permissions.any(activity::shouldShowRequestPermissionRationale)
+        if (canAsk) {
+            Settings.usbAccessAsked = true
+            activity.requestPermissions(permissions, 1)
         } else {
-            activity.requestPermissions(arrayOf(Manifest.permission.READ_EXTERNAL_STORAGE), 1)
+            Toast.makeText(activity, "Allow Photos and videos under Permissions to read USB drives, then go back", Toast.LENGTH_LONG).show()
+            activity.startActivity(
+                Intent(android.provider.Settings.ACTION_APPLICATION_DETAILS_SETTINGS, Uri.parse("package:${activity.packageName}"))
+            )
         }
     }
 }

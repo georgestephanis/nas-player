@@ -26,8 +26,21 @@ data class ServerConfig(
     val password: String = "",
     val domain: String = "",
     val allowInsecureTls: Boolean = false,
-    val showInContinueWatching: Boolean = true,
+    /** With [allowInsecureTls]: SHA-256 of the certificate accepted on first connection; any other is refused. */
+    val pinnedCert: String = "",
+    /** Overrides [Settings.showInContinueWatching]; null follows it. */
+    val showInContinueWatching: Boolean? = null,
+    /** Overrides [Settings.rememberPositions] (saving and offering resume points and watched marks); null follows it. */
+    val rememberPositions: Boolean? = null,
+    /** Kept behind the "More" tile on the home screen. */
+    val hidden: Boolean = false,
+    /** This source's PIN as "salt:sha256" (see [Pin]); empty for none. Needed to open, edit, or show it in Continue watching. */
+    val pinHash: String = "",
 ) {
+    val locked: Boolean get() = pinHash.isNotEmpty()
+    val remembersPositions: Boolean get() = rememberPositions ?: Settings.rememberPositions
+    val inContinueWatching: Boolean get() = remembersPositions && (showInContinueWatching ?: Settings.showInContinueWatching)
+
     val subtitle: String
         get() = when (type) {
             ServerType.SMB -> "smb://" + host + (port?.let { ":$it" } ?: "") +

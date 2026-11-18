@@ -13,6 +13,17 @@ class NasPlayerApp : Application(), coil3.SingletonImageLoader.Factory {
         ResumeStore.init(this)
         Settings.init(this)
         dev.atv.nasplayer.playback.PlaybackLog.init(this)
+        // Relock PIN-protected sources once none of the app's screens is showing (Home button, screen off).
+        registerActivityLifecycleCallbacks(object : ActivityLifecycleCallbacks {
+            private var started = 0
+            override fun onActivityStarted(a: android.app.Activity) { started++ }
+            override fun onActivityStopped(a: android.app.Activity) { if (--started == 0) dev.atv.nasplayer.data.Pin.unlocked = emptySet() }
+            override fun onActivityCreated(a: android.app.Activity, b: android.os.Bundle?) = Unit
+            override fun onActivityResumed(a: android.app.Activity) = Unit
+            override fun onActivityPaused(a: android.app.Activity) = Unit
+            override fun onActivitySaveInstanceState(a: android.app.Activity, b: android.os.Bundle) = Unit
+            override fun onActivityDestroyed(a: android.app.Activity) = Unit
+        })
     }
 
     override fun newImageLoader(context: coil3.PlatformContext): coil3.ImageLoader =

@@ -3,6 +3,15 @@ package dev.atv.nasplayer.playback
 import android.view.KeyEvent as AndroidKeyEvent
 import androidx.activity.compose.BackHandler
 import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.core.Animatable
+import androidx.compose.animation.core.tween
+import androidx.compose.runtime.key
+import androidx.compose.ui.graphics.graphicsLayer
+import coil3.SingletonImageLoader
+import coil3.size.Scale
+import coil3.size.Size
+import dev.atv.nasplayer.source.MediaKind
+import dev.atv.nasplayer.source.MediaTypes
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.foundation.background
@@ -65,10 +74,20 @@ fun ImageHost(
     val context = LocalContext.current
     val name = request.items[session.index]
     val path = joinPath(request.folder, name)
-    var overlay by remember(session) { mutableStateOf(true) }
+    // A slideshow moving on keeps the details hidden; ▼ or INFO still shows them.
+    var overlay by remember(session) { mutableStateOf(!slideshow) }
     var poke by remember(session) { mutableIntStateOf(0) }
-    var loaded by remember(session) { mutableStateOf(false) }
+    // The photo on screen; it stays under the new one until that has loaded and faded in.
+    var shown by remember { mutableStateOf<String?>(null) }
+    // Same session path as what's shown (Previous on the first photo): nothing to load or fade.
+    var loaded by remember(session) { mutableStateOf(path == shown) }
     var failed by remember(session) { mutableStateOf(false) }
+    val fade = remember(session) { Animatable(if (path == shown) 1f else 0f) }
+    // Fixed size, so the prefetch and the displayed request hit the same memory-cache entry.
+    val screen = remember { context.resources.displayMetrics.let { Size(it.widthPixels, it.heightPixels) } }
+    // FullImage has no Coil Keyer, so without memoryCacheKey nothing is cached and the prefetch is wasted.
+    fun imageRequest(p: String) = ImageRequest.Builder(context).data(FullImage(server.id, p))
+        .memoryCacheKey("full|${server.id}|$p").size(screen).scale(Scale.FIT).build()
     val focus = remember { FocusRequester() }
     val recorder = remember(session) { PlaybackRecorder(server.name, path, Engine.EXO) }
 
@@ -80,6 +99,16 @@ fun ImageHost(
         }
     }
     LaunchedEffect(session) { runCatching { focus.requestFocus() } }
+    LaunchedEffect(loaded, failed, session) {
+        if (loaded) fade.animateTo(1f, tween(400))
+        if (loaded || failed) shown = path
+    }
+    // ponytail: prefetches only the next photo; enough for a slideshow of a few seconds a slide.
+    LaunchedEffect(session) {
+        request.items.getOrNull(session.index + 1)
+            ?.takeIf { MediaTypes.kindOf(it) == MediaKind.IMAGE }
+            ?.let { SingletonImageLoader.get(context).enqueue(imageRequest(joinPath(request.folder, it))) }
+    }
 
     BackHandler {
         when {
@@ -112,12 +141,12 @@ fun ImageHost(
                 }
             },
     ) {
-        coil3.compose.AsyncImage(
-            model = ImageRequest.Builder(context).data(FullImage(server.id, path)).build(),
-            contentDescription = name,
+        listOfNotNull(shown, path).distinct().forEach { p -> key(p) { coil3.compose.AsyncImage(
+            model = imageRequest(p),
+            contentDescription = if (p == path) name else null,
             contentScale = ContentScale.Fit,
-            modifier = Modifier.fillMaxSize(),
-            onState = { st: AsyncImagePainter.State ->
+            modifier = Modifier.fillMaxSize().graphicsLayer { alpha = if (p == path) fade.value else 1f },
+            onState = if (p != path) null else { st: AsyncImagePainter.State ->
                 when (st) {
                     is AsyncImagePainter.State.Success -> if (!loaded) {
                         loaded = true
@@ -133,8 +162,8 @@ fun ImageHost(
                     else -> Unit
                 }
             },
-        )
-        if (!loaded) {
+        ) } }
+        if (failed || (!loaded && shown == null)) {
             Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
                 Text(if (failed) "Can't display this image" else "Loading…", color = Color.White.copy(alpha = 0.7f))
             }
