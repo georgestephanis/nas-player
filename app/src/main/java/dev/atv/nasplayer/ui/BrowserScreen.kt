@@ -335,12 +335,12 @@ private fun FileMenu(
                 if (resume != null && resume.positionMs > 0) {
                     ListItem(selected = false, onClick = onStartOver, headlineContent = { Text("Play from the beginning") })
                 }
-                // Photos have no engine choice or watched state.
-                if (dev.atv.nasplayer.source.MediaTypes.kindOf(entry.name) == dev.atv.nasplayer.source.MediaKind.IMAGE) return@Column
-                ListItem(selected = false, onClick = { onPlay(Engine.VLC) }, headlineContent = { Text("Play with VLC engine") },
-                    supportingContent = { Text("Widest format support; software decoding") })
-                ListItem(selected = false, onClick = { onPlay(Engine.EXO) }, headlineContent = { Text("Play with ExoPlayer engine") },
-                    supportingContent = { Text("Hardware decoding, HDR, audio passthrough") })
+                if (dev.atv.nasplayer.source.MediaTypes.kindOf(entry.name) != dev.atv.nasplayer.source.MediaKind.IMAGE) { // photos have no engine choice
+                    ListItem(selected = false, onClick = { onPlay(Engine.VLC) }, headlineContent = { Text("Play with VLC engine") },
+                        supportingContent = { Text("Widest format support; software decoding") })
+                    ListItem(selected = false, onClick = { onPlay(Engine.EXO) }, headlineContent = { Text("Play with ExoPlayer engine") },
+                        supportingContent = { Text("Hardware decoding, HDR, audio passthrough") })
+                }
                 if (resume?.watched == true) {
                     ListItem(selected = false, onClick = { ResumeStore.forget(serverId, entry.path); onDismiss() },
                         headlineContent = { Text("Mark as unwatched") })
