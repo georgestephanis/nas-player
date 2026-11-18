@@ -29,6 +29,19 @@ android {
             keyAlias = "androiddebugkey"
             keyPassword = "android"
         }
+        // Play upload key (backed up in 1Password). Its password comes from the macOS Keychain item
+        // "nas-player-upload" (or NASPLAYER_UPLOAD_PASSWORD), never a file, and only when a Play build runs.
+        val uploadPassword = if (gradle.startParameter.taskNames.none { "Play" in it }) null
+            else System.getenv("NASPLAYER_UPLOAD_PASSWORD") ?: runCatching {
+                providers.exec { commandLine("security", "find-generic-password", "-s", "nas-player-upload", "-w") }
+                    .standardOutput.asText.get().trim()
+            }.getOrNull()
+        create("upload") {
+            storeFile = File(System.getProperty("user.home"), ".android/nas-player-upload.jks")
+            storePassword = uploadPassword
+            keyAlias = "upload"
+            keyPassword = uploadPassword
+        }
     }
 
     buildTypes {
@@ -36,6 +49,13 @@ android {
             // smbj relies on reflection (event bus, ASN.1); keep the release build unminified.
             isMinifyEnabled = false
             signingConfig = signingConfigs.getByName(if (sharedKey.exists()) "shared" else "debug")
+        }
+        // Same build as release, signed with the upload key: `./gradlew bundlePlay` → app/build/outputs/bundle/play/.
+        // Its own app ID (set below), so it installs beside the sideloaded dev.atv.nasplayer.
+        create("play") {
+            initWith(getByName("release"))
+            signingConfig = signingConfigs.getByName("upload")
+            matchingFallbacks += "release"
         }
     }
 
@@ -105,4 +125,17 @@ dependencies {
 
     debugImplementation(libs.compose.ui.tooling)
     testImplementation(libs.junit)
+}
+
+// The Play listing's permanent ID. Sideload builds keep dev.atv.nasplayer so existing installs keep their data.
+androidComponents {
+    onVariants(selector().withBuildType("play")) { it.applicationId.set("me.stephanis.nasplayer") }
+}
+
+tasks.matching { it.name == "validateSigningPlay" }.configureEach {
+    doFirst {
+        check(android.signingConfigs.getByName("upload").storePassword != null) {
+            "No upload key password. Add it once: security add-generic-password -a \"\$USER\" -s nas-player-upload -w"
+        }
+    }
 }

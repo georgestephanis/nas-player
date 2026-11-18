@@ -95,6 +95,10 @@ On a Google TV Streamer (Android 14):
 
 **Throughput:** the release build reads over SMB at 92 Mbit/s on the Streamer's built-in Ethernet, which negotiates at 100 Mbit/s and tops out around 94 Mbit/s of raw TCP. Files averaging above roughly 80 Mbit/s (some UHD remuxes) need a USB-3 gigabit adapter. Debug builds are about three times slower, so judge streaming with a release build.
 
+## Installing
+
+Get it from Google Play on your TV, or download an APK from [GitHub Releases](https://github.com/georgestephanis/nas-player/releases/latest) and side-load it (pick the APK for your device below). Both are the same app, `me.stephanis.nasplayer`. An APK from GitHub can't update a copy installed from Play, or the other way round: to switch, uninstall first (this erases saved sources and resume positions).
+
 ## Devices
 
 - **Google TV Streamer** and **Chromecast with Google TV** both run a 32-bit (`armeabi-v7a`) userspace, so install the `armeabi-v7a` APK on them.
@@ -113,7 +117,7 @@ You need JDK 21 and the Android SDK (platform 37, build-tools 36).
 ./gradlew assembleDebug        # APKs in app/build/outputs/apk/debug/
 ```
 
-Release builds are signed with the debug key for side-loading; they are not minified, because smbj relies on reflection. Each computer generates its own debug key, and Android only accepts an update signed with the same key as the installed app. Installing from a different computer fails with `INSTALL_FAILED_UPDATE_INCOMPATIBLE`, so build on the original computer or re-sign the APK with its key. Uninstalling first also works, but erases saved sources and resume positions.
+`assembleRelease` builds are the developer's side-load build: app ID `dev.atv.nasplayer`, named "NAS Player (dev)" on the TV, so they install beside the Play or GitHub copy. They are signed with the debug key; they are not minified, because smbj relies on reflection. Each computer generates its own debug key, and Android only accepts an update signed with the same key as the installed app. Installing from a different computer fails with `INSTALL_FAILED_UPDATE_INCOMPATIBLE`, so build on the original computer or re-sign the APK with its key. Uninstalling first also works, but erases saved sources and resume positions.
 
 ### Installing over the network
 

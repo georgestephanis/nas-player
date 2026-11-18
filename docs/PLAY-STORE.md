@@ -31,19 +31,20 @@ Status as of 2026-11-11. Items marked **Blocker** will get the app rejected or s
 - [x] ~~**Trust-all TLS for WebDAV.**~~ "Accept self-signed HTTPS certificates" used to accept any
   certificate, which Play's security scan flags. It now pins the first certificate the server presents
   and refuses any other.
-- [ ] **Blocker — signing.** Play rejects APKs and bundles signed with a debug key, and new apps must
+- [x] **Signing.** Play rejects APKs and bundles signed with a debug key, and new apps must
   use Play App Signing:
-  - Generate an upload key: `keytool -genkeypair -v -keystore ~/.android/nas-player-upload.jks
-    -alias upload -keyalg RSA -keysize 4096 -validity 10000`. Back it up somewhere safe, off this
-    machine. Losing it means asking Google to reset it.
-  - Read its passwords from an ignored `keystore.properties` (already in `.gitignore`), never from
-    `build.gradle.kts`.
-  - Build an App Bundle with `./gradlew bundleRelease`. Play makes the per-ABI APKs itself; the
-    `splits { abi }` block only affects sideload APKs.
-- [ ] **Sideloaded vs Play installs.** The Play-installed app will be signed with Google's key, not
-  `nas-player.keystore`, so it can't update over the sideloaded app on your TV, or the other way
-  round. Either uninstall once when switching (this loses saved sources and resume positions), or give
-  sideload builds `applicationIdSuffix = ".dev"` so both can be installed side by side.
+  - The upload key is `~/.android/nas-player-upload.jks` (alias `upload`), made with
+    `keytool -genkeypair -v -keystore ~/.android/nas-player-upload.jks -alias upload -keyalg RSA
+    -keysize 4096 -validity 10000`. It and its password are backed up in 1Password. Losing it means
+    asking Google to reset it.
+  - Its password is in the macOS Keychain as `nas-player-upload`
+    (`security add-generic-password -a "$USER" -s nas-player-upload -w` adds it). Build the App
+    Bundle with `./gradlew bundlePlay`.
+    The output is `app/build/outputs/bundle/play/app-play.aab`. Play makes the per-ABI APKs itself;
+    the `splits { abi }` block only affects sideload APKs.
+- [x] **Sideloaded vs Play installs.** The Play build's app ID is `me.stephanis.nasplayer` (permanent
+  once uploaded); sideload builds stay `dev.atv.nasplayer`. They are separate apps, so both can be
+  installed on one TV, and sideloaded installs keep their sources and resume positions.
 - [ ] **versionCode / versionName.** Each upload needs a higher `versionCode` (currently 1). Pick a
   scheme now, e.g. `versionCode` = build number and `versionName` = `1.0.0`.
 - [ ] **Target API.** `targetSdk = 36`. Play requires new apps to target a recent API level (the
@@ -108,3 +109,15 @@ Status as of 2026-11-11. Items marked **Blocker** will get the app rejected or s
 3. [ ] Apply for production access, answering the questions about the test.
 4. [ ] Production: a staged rollout (e.g. 20%) is optional for a new app, but harmless.
 5. [ ] Afterwards, watch *Android vitals* for crashes and ANRs.
+
+## Cutting a release
+
+1. Raise `versionCode` (by one) and `versionName` in `app/build.gradle.kts`, merge to `main`.
+2. `./gradlew bundlePlay assemblePlay`. Upload `app/build/outputs/bundle/play/app-play.aab` to Play.
+3. Tag and publish the same commit on GitHub with the APKs (all signed with the upload key):
+   ```bash
+   v=1.0; d=$(mktemp -d)
+   for a in arm64-v8a armeabi-v7a x86_64 universal; do
+     cp app/build/outputs/apk/play/app-$a-play.apk "$d/NAS-Player-$v-$a.apk"; done
+   gh release create v$v "$d"/*.apk --target main --title "NAS Player $v" --notes-file notes.md
+   ```
