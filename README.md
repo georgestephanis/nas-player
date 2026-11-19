@@ -143,6 +143,10 @@ More on the code layout and device testing: [docs/ARCHITECTURE.md](docs/ARCHITEC
 - **Artwork:** put `poster.jpg` (or `folder.jpg` / `cover.jpg`) in movie, show and album folders, the same layout Plex, Kodi and Jellyfin use, and it becomes the thumbnail.
 - **Credentials** are kept in app-private storage (backups disabled) and encrypted with the Android Keystore. Some TV firmware has a keystore service that hangs; if it doesn't answer within two seconds the password is stored unencrypted in that same private storage and encrypted on a later save once the keystore responds. If a saved password can't be decrypted, it's left in place rather than overwritten, so it isn't lost.
 
+## How it was built
+
+NAS Player was built with heavy help from an AI coding assistant ([Claude Code](https://claude.com/claude-code)); most of the code was written by the AI. I designed the app, decided what it should and shouldn't do, tested it on real hardware (a Google TV Streamer) and the Android TV emulator, and reviewed the changes (with AI-assisted code review too) before merging. Commits carry a `Co-Authored-By: Claude` line, so the history shows exactly which changes involved it.
+
 ## License
 
 GPL-3.0-or-later. See [LICENSE](LICENSE).
