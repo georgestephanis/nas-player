@@ -1,5 +1,14 @@
 # NAS Player
 
+> [!TIP]
+> **Look before you build.** Similar open-source projects:
+>
+> - [Nova Video Player](https://github.com/nova-video-player/aos-AVP): Android and Android TV player for network shares, Apache-2.0
+> - [Kodi](https://github.com/xbmc/xbmc): full media center, GPL-2.0
+> - [VLC for Android](https://github.com/videolan/vlc-android): includes Android TV, GPL-2.0
+>
+> Before building your own tool, search [AlternativeTo](https://alternativeto.net) (filter to open source), [GitHub](https://github.com/search?type=repositories) and [wvw.dev](https://wvw.dev) for something to fork, this repo included.
+
 An Android TV / Google TV app for watching video, listening to music and viewing photos straight from a NAS over SMB (Windows / Samba / TrueNAS / Synology shares) or WebDAV. It also reads USB drives. It has no cloud, no accounts, no media scanning and no metadata scraping: you browse folders and press play, and everything plays inside the app.
 
 <p align="center">
